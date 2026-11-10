@@ -36,7 +36,7 @@ export const CatalogPanel: React.FC<CatalogPanelProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedModule, setSelectedModule] = useState<FunctionalModuleId | 'ALL'>('ALL');
   const [selectedDataType, setSelectedDataType] = useState<PSDataType | 'ALL'>('ALL');
-  const [expandedTables, setExpandedTables] = useState<Set<string>>(new Set(['PO_HDR']));
+  const [expandedTables, setExpandedTables] = useState<Set<string>>(new Set());
   const [favorites, setFavorites] = useState<Set<string>>(() => {
     try {
       const saved = localStorage.getItem('ps_favorite_tables');

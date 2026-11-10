@@ -181,13 +181,18 @@ export const QueryBuilderPanel: React.FC<QueryBuilderPanelProps> = ({
           <select
             value={query.baseTable}
             onChange={(e) => handleChangeBaseTable(e.target.value)}
-            className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-200 font-mono text-xs focus:outline-none focus:border-amber-500"
+            disabled={involvedTables.length === 0}
+            className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-200 font-mono text-xs focus:outline-none focus:border-amber-500 disabled:opacity-50"
           >
-            {involvedTables.map((t) => (
-              <option key={t} value={t}>
-                {t} ({tablesMap.get(t)?.label || t})
-              </option>
-            ))}
+            {involvedTables.length === 0 ? (
+              <option value="">(Aucune table sélectionnée)</option>
+            ) : (
+              involvedTables.map((t) => (
+                <option key={t} value={t}>
+                  {t} ({tablesMap.get(t)?.label || t})
+                </option>
+              ))
+            )}
           </select>
         </div>
       </div>
@@ -423,7 +428,7 @@ export const QueryBuilderPanel: React.FC<QueryBuilderPanelProps> = ({
               <div className="flex items-center gap-2">
                 <span className="text-xs text-slate-400">Table pivot :</span>
                 <span className="font-mono text-xs px-2 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/20 font-bold">
-                  {query.baseTable}
+                  {query.baseTable || 'Aucune'}
                 </span>
               </div>
             </div>
@@ -452,11 +457,14 @@ export const QueryBuilderPanel: React.FC<QueryBuilderPanelProps> = ({
             {query.joins.length === 0 ? (
               <div className="border border-dashed border-slate-800 rounded-xl p-8 text-center bg-slate-900/30">
                 <p className="text-xs text-slate-300 font-medium">
-                  Une seule table ({query.baseTable}) est active pour le moment.
+                  {query.baseTable
+                    ? `Une seule table (${query.baseTable}) est active pour le moment.`
+                    : 'Aucune table sélectionnée pour le moment.'}
                 </p>
                 <p className="text-[11px] text-slate-400 mt-1">
-                  Lorsque vous sélectionnerez des champs issus d’une autre table (ex: VENDOR, PO_LINE,
-                  GL_ACCOUNT_TBL), le graphe PeopleSoft créera les jointures composites automatiquement.
+                  {query.baseTable
+                    ? 'Lorsque vous sélectionnerez des champs issus d’une autre table (ex: VENDOR, PO_LINE, GL_ACCOUNT_TBL), le graphe PeopleSoft créera les jointures composites automatiquement.'
+                    : 'Sélectionnez des champs dans le catalogue à gauche pour activer des tables et construire des jointures automatiques.'}
                 </p>
               </div>
             ) : (

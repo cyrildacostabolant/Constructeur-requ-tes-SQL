@@ -317,9 +317,15 @@ export const SqlViewerPanel: React.FC<SqlViewerPanelProps> = ({
               </p>
             </div>
 
-            {/* Tables Used */}
-            <div className="space-y-1">
-              <span className="font-semibold text-amber-300">Tables interrogées :</span>
+            {explanation.tablesUsed.length === 0 ? (
+              <p className="text-slate-400 italic">
+                Aucun champ sélectionné. Sélectionnez des champs dans le catalogue à gauche ou chargez un modèle préconfiguré pour voir l'explication en français.
+              </p>
+            ) : (
+              <>
+                {/* Tables Used */}
+                <div className="space-y-1">
+                  <span className="font-semibold text-amber-300">Tables interrogées :</span>
               <ul className="list-disc pl-5 space-y-1 text-slate-300">
                 {explanation.tablesUsed.map((tbl, idx) => (
                   <li key={idx}>
@@ -387,16 +393,18 @@ export const SqlViewerPanel: React.FC<SqlViewerPanelProps> = ({
               </div>
             )}
 
-            {/* Sorts */}
-            {explanation.sortsExplained.length > 0 && (
-              <div className="space-y-1">
-                <span className="font-semibold text-amber-300">Ordre de tri :</span>
-                <ul className="list-disc pl-5 space-y-1 text-slate-300">
-                  {explanation.sortsExplained.map((s, idx) => (
-                    <li key={idx}>{s}</li>
-                  ))}
-                </ul>
-              </div>
+                {/* Sorts */}
+                {explanation.sortsExplained.length > 0 && (
+                  <div className="space-y-1">
+                    <span className="font-semibold text-amber-300">Ordre de tri :</span>
+                    <ul className="list-disc pl-5 space-y-1 text-slate-300">
+                      {explanation.sortsExplained.map((s, idx) => (
+                        <li key={idx}>{s}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}

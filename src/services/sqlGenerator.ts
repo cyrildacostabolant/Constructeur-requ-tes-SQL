@@ -46,13 +46,7 @@ export class PeopleSoftSqlGenerator {
           sortsExplained: [],
           effdtRules: [],
         },
-        errors: [
-          {
-            type: 'warning',
-            title: 'Requête vide',
-            message: 'Sélectionnez au moins un champ dans le catalogue pour composer une requête.',
-          },
-        ],
+        errors: [],
       };
     }
 

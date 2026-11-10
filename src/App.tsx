@@ -18,9 +18,22 @@ import {
   SqlDialect,
 } from './types/peoplesoft';
 
+const createEmptyQuery = (dialect: SqlDialect = 'oracle'): PeopleSoftQuery => ({
+  name: 'Nouvelle requête',
+  baseTable: '',
+  selectedFields: [],
+  joins: [],
+  sorts: [],
+  isDistinct: false,
+  rowLimit: 100,
+  dialect,
+  useBindVariables: false,
+  effdtOptions: {},
+});
+
 export default function App() {
-  // Initialize with the first preset so user sees a rich, working query immediately
-  const [query, setQuery] = useState<PeopleSoftQuery>(() => PRESET_QUERIES[0].query);
+  // Completely blank query on application launch
+  const [query, setQuery] = useState<PeopleSoftQuery>(() => createEmptyQuery('oracle'));
 
   const [isCoverageOpen, setIsCoverageOpen] = useState(false);
   const [isPresetsOpen, setIsPresetsOpen] = useState(false);
@@ -40,7 +53,7 @@ export default function App() {
       new Set(query.selectedFields.map((f) => f.recordName)).values()
     );
 
-    if (distinctTables.length <= 1) {
+    if (distinctTables.length <= 1 || !query.baseTable) {
       return { intermediateTables: [] };
     }
 
@@ -65,8 +78,8 @@ export default function App() {
         // If table has no remaining fields and was not base table, check if joins should adapt
         const remainingTables = Array.from(new Set(remainingFields.map((f) => f.recordName)));
         let newBase = prev.baseTable;
-        if (!remainingTables.includes(newBase) && remainingTables.length > 0) {
-          newBase = remainingTables[0];
+        if (!remainingTables.includes(newBase)) {
+          newBase = remainingTables.length > 0 ? remainingTables[0] : '';
         }
 
         // Auto-recalculate joins
@@ -189,18 +202,9 @@ export default function App() {
   };
 
   const handleResetQuery = () => {
+    if (query.selectedFields.length === 0) return;
     if (confirm('Voulez-vous vraiment effacer tous les champs et réinitialiser la requête ?')) {
-      setQuery({
-        name: 'Nouvelle requête PeopleSoft',
-        baseTable: 'PO_HDR',
-        selectedFields: [],
-        joins: [],
-        sorts: [],
-        isDistinct: false,
-        dialect: query.dialect,
-        useBindVariables: false,
-        effdtOptions: {},
-      });
+      setQuery(createEmptyQuery(query.dialect));
     }
   };
 

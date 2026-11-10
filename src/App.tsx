@@ -231,7 +231,6 @@ export default function App() {
         onOpenCoverage={() => setIsCoverageOpen(true)}
         onOpenPresets={() => setIsPresetsOpen(true)}
         onResetQuery={handleResetQuery}
-        onImportQuery={(imported) => setQuery(imported)}
         tableCount={FSCM_TABLES.length}
         fieldCount={totalFields}
       />

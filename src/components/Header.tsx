@@ -1,5 +1,5 @@
-import { Check, Copy, Database, Download, FileCode, FolderOpen, Info, RefreshCw, Save, Sparkles } from 'lucide-react';
-import React, { useRef, useState } from 'react';
+import { Info, RefreshCw, Sparkles } from 'lucide-react';
+import React from 'react';
 import { PeopleSoftQuery, SqlDialect } from '../types/peoplesoft';
 
 interface HeaderProps {
@@ -9,7 +9,6 @@ interface HeaderProps {
   onOpenCoverage: () => void;
   onOpenPresets: () => void;
   onResetQuery: () => void;
-  onImportQuery: (query: PeopleSoftQuery) => void;
   tableCount: number;
   fieldCount: number;
 }
@@ -21,55 +20,18 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenCoverage,
   onOpenPresets,
   onResetQuery,
-  onImportQuery,
   tableCount,
   fieldCount,
 }) => {
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [exportSuccess, setExportSuccess] = useState(false);
-
-  const handleExportJson = () => {
-    const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(query, null, 2));
-    const downloadAnchor = document.createElement('a');
-    downloadAnchor.setAttribute('href', dataStr);
-    downloadAnchor.setAttribute('download', `requete_peoplesoft_${Date.now()}.json`);
-    document.body.appendChild(downloadAnchor);
-    downloadAnchor.click();
-    downloadAnchor.remove();
-
-    setExportSuccess(true);
-    setTimeout(() => setExportSuccess(false), 2000);
-  };
-
-  const handleImportJson = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const content = event.target?.result as string;
-        const parsed = JSON.parse(content);
-        if (parsed.baseTable && Array.isArray(parsed.selectedFields)) {
-          onImportQuery(parsed as PeopleSoftQuery);
-        } else {
-          alert('Le fichier importé n’est pas une configuration de requête PeopleSoft valide.');
-        }
-      } catch (err) {
-        alert('Erreur lors de la lecture du fichier JSON de requête.');
-      }
-    };
-    reader.readAsText(file);
-    e.target.value = '';
-  };
-
   return (
     <header className="flex items-center justify-between gap-4 px-6 py-3 border-b border-slate-800 bg-slate-950/80 backdrop-blur-md sticky top-0 z-30">
-      {/* Zone 1: Wordmark & Brand title */}
+      {/* Zone 1: Organization Logo & Brand title */}
       <div className="flex items-center gap-3 shrink-0">
-        <div className="w-9 h-9 rounded-lg bg-gradient-to-tr from-amber-600 to-amber-400 flex items-center justify-center shadow-lg shadow-amber-500/10 text-slate-950 font-bold">
-          <Database className="w-5 h-5 text-slate-950" />
-        </div>
+        <img
+          src="/assets/aistudio/image_039319d1.png"
+          alt="Logo eSNCF SOLUTIONS"
+          className="h-10 w-auto rounded object-contain bg-[#081836] p-1 border border-blue-900/60 shadow-sm shadow-blue-950/40"
+        />
         <div>
           <div className="flex items-center gap-2">
             <span className="text-base font-bold tracking-tight text-white whitespace-nowrap">
@@ -80,7 +42,7 @@ export const Header: React.FC<HeaderProps> = ({
             </span>
           </div>
           <p className="text-xs text-slate-400 hidden sm:block">
-            Catalogue intégré · {tableCount} tables vérifiées · {fieldCount} champs référencés
+            eSNCF SOLUTIONS · Catalogue intégré · {tableCount} tables vérifiées · {fieldCount} champs référencés
           </p>
         </div>
       </div>
@@ -97,31 +59,6 @@ export const Header: React.FC<HeaderProps> = ({
         </button>
 
         <button
-          onClick={handleExportJson}
-          className="px-3 py-1.5 text-xs font-medium text-slate-300 hover:text-white bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 rounded-md transition-colors flex items-center gap-1.5 whitespace-nowrap"
-          title="Sauvegarder la requête en cours au format JSON"
-        >
-          {exportSuccess ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Save className="w-3.5 h-3.5 text-slate-400" />}
-          Exporter JSON
-        </button>
-
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          className="px-3 py-1.5 text-xs font-medium text-slate-300 hover:text-white bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 rounded-md transition-colors flex items-center gap-1.5 whitespace-nowrap"
-          title="Ouvrir une requête précédemment sauvegardée"
-        >
-          <FolderOpen className="w-3.5 h-3.5 text-slate-400" />
-          Importer JSON
-        </button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".json"
-          onChange={handleImportJson}
-          className="hidden"
-        />
-
-        <button
           onClick={onOpenCoverage}
           className="px-3 py-1.5 text-xs font-medium text-slate-300 hover:text-white bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 rounded-md transition-colors flex items-center gap-1.5 whitespace-nowrap"
           title="Consulter le niveau de vérification et la couverture du modèle"
@@ -132,7 +69,8 @@ export const Header: React.FC<HeaderProps> = ({
 
         <button
           onClick={onResetQuery}
-          className="px-3 py-1.5 text-xs font-medium text-rose-300 hover:text-rose-100 bg-rose-950/30 hover:bg-rose-900/50 border border-rose-800/40 rounded-md transition-colors flex items-center gap-1.5 whitespace-nowrap"
+          disabled={query.selectedFields.length === 0}
+          className="px-3 py-1.5 text-xs font-medium text-rose-300 hover:text-rose-100 bg-rose-950/30 hover:bg-rose-900/50 border border-rose-800/40 rounded-md transition-colors flex items-center gap-1.5 whitespace-nowrap disabled:opacity-30 disabled:cursor-not-allowed"
           title="Réinitialiser la requête en cours"
         >
           <RefreshCw className="w-3.5 h-3.5 text-rose-400" />
@@ -140,7 +78,7 @@ export const Header: React.FC<HeaderProps> = ({
         </button>
       </div>
 
-      {/* Zone 3: Dialect Switcher & Primary target */}
+      {/* Zone 3: Dialect Switcher */}
       <div className="flex items-center gap-3 shrink-0">
         <div className="flex items-center gap-1 bg-slate-900 border border-slate-800 rounded-lg p-1 text-xs">
           <button

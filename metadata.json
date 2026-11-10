@@ -1,0 +1,6 @@
+{
+  "name": "Constructeur de requêtes PeopleSoft 9.2",
+  "description": "Générateur visuel de requêtes SQL pour le modèle de données Oracle PeopleSoft FSCM 9.2 avec catalogue exhaustif, jointures automatiques et gestion EFFDT.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

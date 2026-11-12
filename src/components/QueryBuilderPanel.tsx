@@ -1,26 +1,33 @@
 import {
   ArrowDown,
   ArrowUp,
+  Check,
   CheckSquare,
   Database,
   Eye,
   EyeOff,
   Filter,
   GitBranch,
+  Key,
   Layers,
+  Link2,
   MoveDown,
   MoveUp,
+  Pencil,
   Plus,
   Settings2,
   Sliders,
+  Sparkles,
   Trash2,
   X,
 } from 'lucide-react';
 import React, { useState } from 'react';
+import { FSCM_RELATIONS } from '../data/metadata/relations';
 import { FSCM_TABLES } from '../data/metadata/tables';
 import {
   ActiveJoin,
   FilterOperator,
+  JoinCondition,
   JoinType,
   PeopleSoftQuery,
   QuerySort,
@@ -39,6 +46,15 @@ export const QueryBuilderPanel: React.FC<QueryBuilderPanelProps> = ({
   intermediateTables,
 }) => {
   const [activeTab, setActiveTab] = useState<'fields' | 'joins' | 'options'>('fields');
+
+  // Custom Join Modal / Form state
+  const [isCreatingJoin, setIsCreatingJoin] = useState(false);
+  const [editingJoinId, setEditingJoinId] = useState<string | null>(null);
+  const [customLeftTable, setCustomLeftTable] = useState('');
+  const [customRightTable, setCustomRightTable] = useState('');
+  const [customJoinType, setCustomJoinType] = useState<JoinType>('INNER JOIN');
+  const [customConditions, setCustomConditions] = useState<JoinCondition[]>([]);
+  const [joinFormError, setJoinFormError] = useState<string | null>(null);
 
   const tablesMap = new Map(FSCM_TABLES.map((t) => [t.recordName, t]));
 
@@ -61,22 +77,55 @@ export const QueryBuilderPanel: React.FC<QueryBuilderPanelProps> = ({
       newFields[index] = newFields[targetIndex];
       newFields[targetIndex] = temp;
 
-      return { ...prev, selectedFields: newFields };
+      return {
+        ...prev,
+        selectedFields: newFields,
+      };
     });
   };
 
   const handleUpdateField = (fieldId: string, updates: Partial<SelectedField>) => {
     onUpdateQuery((prev) => ({
       ...prev,
-      selectedFields: prev.selectedFields.map((f) => (f.id === fieldId ? { ...f, ...updates } : f)),
+      selectedFields: prev.selectedFields.map((f) =>
+        f.id === fieldId ? { ...f, ...updates } : f
+      ),
+    }));
+  };
+
+  const handleToggleVisibility = (fieldId: string) => {
+    onUpdateQuery((prev) => ({
+      ...prev,
+      selectedFields: prev.selectedFields.map((f) =>
+        f.id === fieldId ? { ...f, isVisible: !f.isVisible } : f
+      ),
+    }));
+  };
+
+  const handleToggleFilter = (fieldId: string) => {
+    onUpdateQuery((prev) => ({
+      ...prev,
+      selectedFields: prev.selectedFields.map((f) => {
+        if (f.id === fieldId) {
+          const nextActive = !f.filterActive;
+          return {
+            ...f,
+            filterActive: nextActive,
+            filterOperator: nextActive ? f.filterOperator || '=' : f.filterOperator,
+          };
+        }
+        return f;
+      }),
     }));
   };
 
   // Join manipulation helpers
-  const handleUpdateJoinType = (joinId: string, type: JoinType) => {
+  const handleUpdateJoinType = (joinId: string, joinType: JoinType) => {
     onUpdateQuery((prev) => ({
       ...prev,
-      joins: prev.joins.map((j) => (j.id === joinId ? { ...j, joinType: type, userModified: true } : j)),
+      joins: prev.joins.map((j) =>
+        j.id === joinId ? { ...j, joinType, userModified: true } : j
+      ),
     }));
   };
 
@@ -92,6 +141,276 @@ export const QueryBuilderPanel: React.FC<QueryBuilderPanelProps> = ({
       ...prev,
       baseTable: newBase,
     }));
+  };
+
+  // Custom Join Handlers
+  const handleStartAddJoin = (presetLeft?: string, presetRight?: string) => {
+    const distinctTables = Array.from(new Set(query.selectedFields.map((f) => f.recordName)));
+    const defaultLeft = presetLeft || query.baseTable || distinctTables[0] || FSCM_TABLES[0].recordName;
+    const defaultRight =
+      presetRight ||
+      distinctTables.find((t) => t !== defaultLeft) ||
+      FSCM_TABLES.find((t) => t.recordName !== defaultLeft)?.recordName ||
+      FSCM_TABLES[1]?.recordName ||
+      defaultLeft;
+
+    setEditingJoinId(null);
+    setCustomLeftTable(defaultLeft);
+    setCustomRightTable(defaultRight);
+    setCustomJoinType('INNER JOIN');
+    setJoinFormError(null);
+
+    // Try finding official ERD relation first
+    const knownRel = FSCM_RELATIONS.find(
+      (r) =>
+        (r.sourceTable === defaultLeft && r.targetTable === defaultRight) ||
+        (r.sourceTable === defaultRight && r.targetTable === defaultLeft)
+    );
+
+    if (knownRel) {
+      if (knownRel.sourceTable === defaultLeft) {
+        setCustomConditions(
+          knownRel.joinConditions.map((c) => ({
+            sourceField: c.sourceField,
+            targetField: c.targetField,
+          }))
+        );
+      } else {
+        setCustomConditions(
+          knownRel.joinConditions.map((c) => ({
+            sourceField: c.targetField,
+            targetField: c.sourceField,
+          }))
+        );
+      }
+    } else {
+      // Check matching field names
+      const leftMeta = tablesMap.get(defaultLeft);
+      const rightMeta = tablesMap.get(defaultRight);
+      const matching = leftMeta?.fields.filter((lf) =>
+        rightMeta?.fields.some((rf) => rf.fieldName === lf.fieldName && lf.isKey)
+      );
+
+      if (matching && matching.length > 0) {
+        setCustomConditions(
+          matching.map((m) => ({ sourceField: m.fieldName, targetField: m.fieldName }))
+        );
+      } else {
+        setCustomConditions([
+          {
+            sourceField: leftMeta?.fields[0]?.fieldName || '',
+            targetField: rightMeta?.fields[0]?.fieldName || '',
+          },
+        ]);
+      }
+    }
+
+    setIsCreatingJoin(true);
+  };
+
+  const handleStartEditJoin = (join: ActiveJoin) => {
+    setEditingJoinId(join.id);
+    setCustomLeftTable(join.leftTable);
+    setCustomRightTable(join.rightTable);
+    setCustomJoinType(join.joinType);
+    setCustomConditions(join.conditions.map((c) => ({ ...c })));
+    setJoinFormError(null);
+    setIsCreatingJoin(true);
+  };
+
+  const handleTableChange = (side: 'left' | 'right', newTable: string) => {
+    const newLeft = side === 'left' ? newTable : customLeftTable;
+    const newRight = side === 'right' ? newTable : customRightTable;
+
+    if (side === 'left') setCustomLeftTable(newTable);
+    else setCustomRightTable(newTable);
+
+    // Check if official relation exists
+    const knownRel = FSCM_RELATIONS.find(
+      (r) =>
+        (r.sourceTable === newLeft && r.targetTable === newRight) ||
+        (r.sourceTable === newRight && r.targetTable === newLeft)
+    );
+
+    if (knownRel) {
+      if (knownRel.sourceTable === newLeft) {
+        setCustomConditions(
+          knownRel.joinConditions.map((c) => ({
+            sourceField: c.sourceField,
+            targetField: c.targetField,
+          }))
+        );
+      } else {
+        setCustomConditions(
+          knownRel.joinConditions.map((c) => ({
+            sourceField: c.targetField,
+            targetField: c.sourceField,
+          }))
+        );
+      }
+    } else {
+      const leftMeta = tablesMap.get(newLeft);
+      const rightMeta = tablesMap.get(newRight);
+      const matching = leftMeta?.fields.filter((lf) =>
+        rightMeta?.fields.some((rf) => rf.fieldName === lf.fieldName && lf.isKey)
+      );
+
+      if (matching && matching.length > 0) {
+        setCustomConditions(
+          matching.map((m) => ({ sourceField: m.fieldName, targetField: m.fieldName }))
+        );
+      } else {
+        setCustomConditions([
+          {
+            sourceField: leftMeta?.fields[0]?.fieldName || '',
+            targetField: rightMeta?.fields[0]?.fieldName || '',
+          },
+        ]);
+      }
+    }
+  };
+
+  const handleSuggestRelationConditions = () => {
+    const knownRel = FSCM_RELATIONS.find(
+      (r) =>
+        (r.sourceTable === customLeftTable && r.targetTable === customRightTable) ||
+        (r.sourceTable === customRightTable && r.targetTable === customLeftTable)
+    );
+
+    if (knownRel) {
+      if (knownRel.sourceTable === customLeftTable) {
+        setCustomConditions(
+          knownRel.joinConditions.map((c) => ({
+            sourceField: c.sourceField,
+            targetField: c.targetField,
+          }))
+        );
+      } else {
+        setCustomConditions(
+          knownRel.joinConditions.map((c) => ({
+            sourceField: c.targetField,
+            targetField: c.sourceField,
+          }))
+        );
+      }
+      return;
+    }
+
+    const leftMeta = tablesMap.get(customLeftTable);
+    const rightMeta = tablesMap.get(customRightTable);
+    const matching = leftMeta?.fields.filter((lf) =>
+      rightMeta?.fields.some((rf) => rf.fieldName === lf.fieldName)
+    );
+
+    if (matching && matching.length > 0) {
+      setCustomConditions(
+        matching.map((m) => ({ sourceField: m.fieldName, targetField: m.fieldName }))
+      );
+    }
+  };
+
+  const handleAddCustomCondition = () => {
+    const leftMeta = tablesMap.get(customLeftTable);
+    const rightMeta = tablesMap.get(customRightTable);
+    setCustomConditions((prev) => [
+      ...prev,
+      {
+        sourceField: leftMeta?.fields[0]?.fieldName || '',
+        targetField: rightMeta?.fields[0]?.fieldName || '',
+      },
+    ]);
+  };
+
+  const handleRemoveCustomCondition = (index: number) => {
+    if (customConditions.length <= 1) return;
+    setCustomConditions((prev) => prev.filter((_, idx) => idx !== index));
+  };
+
+  const handleUpdateCustomCondition = (
+    index: number,
+    key: 'sourceField' | 'targetField',
+    value: string
+  ) => {
+    setCustomConditions((prev) =>
+      prev.map((c, idx) => (idx === index ? { ...c, [key]: value } : c))
+    );
+  };
+
+  const handleSaveCustomJoin = () => {
+    if (!customLeftTable || !customRightTable) {
+      setJoinFormError('Veuillez sélectionner les deux tables à relier.');
+      return;
+    }
+    if (customLeftTable === customRightTable) {
+      setJoinFormError('Veuillez sélectionner deux tables distinctes pour la jointure.');
+      return;
+    }
+
+    const validConditions = customConditions.filter(
+      (c) => c.sourceField.trim() && c.targetField.trim()
+    );
+
+    if (validConditions.length === 0) {
+      setJoinFormError('Veuillez renseigner au moins un critère de jointure (champ gauche = champ droite).');
+      return;
+    }
+
+    onUpdateQuery((prev) => {
+      let updatedJoins = [...prev.joins];
+      let newBase = prev.baseTable;
+      if (!newBase) {
+        newBase = customLeftTable;
+      }
+
+      if (editingJoinId) {
+        updatedJoins = updatedJoins.map((j) => {
+          if (j.id === editingJoinId) {
+            return {
+              ...j,
+              leftTable: customLeftTable,
+              rightTable: customRightTable,
+              joinType: customJoinType,
+              conditions: validConditions,
+              isAutoDetected: false,
+              userModified: true,
+            };
+          }
+          return j;
+        });
+      } else {
+        const existingIdx = updatedJoins.findIndex(
+          (j) =>
+            (j.leftTable === customLeftTable && j.rightTable === customRightTable) ||
+            (j.leftTable === customRightTable && j.rightTable === customLeftTable)
+        );
+
+        const newJoin: ActiveJoin = {
+          id: `custom_join_${Date.now()}`,
+          leftTable: customLeftTable,
+          rightTable: customRightTable,
+          joinType: customJoinType,
+          conditions: validConditions,
+          isAutoDetected: false,
+          userModified: true,
+        };
+
+        if (existingIdx >= 0) {
+          updatedJoins[existingIdx] = newJoin;
+        } else {
+          updatedJoins.push(newJoin);
+        }
+      }
+
+      return {
+        ...prev,
+        baseTable: newBase,
+        joins: updatedJoins,
+      };
+    });
+
+    setIsCreatingJoin(false);
+    setEditingJoinId(null);
+    setJoinFormError(null);
   };
 
   // Sort manipulation helpers
@@ -127,9 +446,18 @@ export const QueryBuilderPanel: React.FC<QueryBuilderPanelProps> = ({
   };
 
   // Available unique tables in the current query
-  const involvedTables = Array.from(
-    new Set([query.baseTable, ...query.selectedFields.map((f) => f.recordName)]).values()
-  ).filter(Boolean);
+  const distinctTablesInQuery = Array.from(
+    new Set(query.selectedFields.map((f) => f.recordName)).values()
+  );
+
+  // Check for disconnected tables
+  const joinedTablesSet = new Set<string>();
+  if (query.baseTable) joinedTablesSet.add(query.baseTable);
+  query.joins.forEach((j) => {
+    joinedTablesSet.add(j.leftTable);
+    joinedTablesSet.add(j.rightTable);
+  });
+  const disconnectedTables = distinctTablesInQuery.filter((t) => !joinedTablesSet.has(t));
 
   return (
     <main className="flex-1 flex flex-col h-full bg-slate-950 overflow-hidden border-r border-slate-800">
@@ -178,61 +506,43 @@ export const QueryBuilderPanel: React.FC<QueryBuilderPanelProps> = ({
 
         <div className="text-xs text-slate-400 flex items-center gap-2">
           <span>Table de base :</span>
-          <select
-            value={query.baseTable}
-            onChange={(e) => handleChangeBaseTable(e.target.value)}
-            disabled={involvedTables.length === 0}
-            className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-200 font-mono text-xs focus:outline-none focus:border-amber-500 disabled:opacity-50"
-          >
-            {involvedTables.length === 0 ? (
-              <option value="">(Aucune table sélectionnée)</option>
-            ) : (
-              involvedTables.map((t) => (
-                <option key={t} value={t}>
-                  {t} ({tablesMap.get(t)?.label || t})
+          {distinctTablesInQuery.length > 1 ? (
+            <select
+              value={query.baseTable}
+              onChange={(e) => handleChangeBaseTable(e.target.value)}
+              className="bg-slate-950 border border-slate-700 rounded px-2 py-0.5 font-mono text-amber-300 font-bold text-xs focus:outline-none focus:border-amber-500"
+            >
+              {distinctTablesInQuery.map((tbl) => (
+                <option key={tbl} value={tbl}>
+                  {tbl}
                 </option>
-              ))
-            )}
-          </select>
+              ))}
+            </select>
+          ) : (
+            <span className="font-mono text-amber-300 font-bold">
+              {query.baseTable || 'Aucune'}
+            </span>
+          )}
         </div>
       </div>
 
-      {/* Content Area */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-6">
+      {/* Main Content Area */}
+      <div className="flex-1 overflow-y-auto p-6 space-y-4">
         {/* TAB 1: FIELDS & FILTERS */}
         {activeTab === 'fields' && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-sm font-bold text-white tracking-tight">
-                  Champs sélectionnés pour la requête
-                </h2>
-                <p className="text-xs text-slate-400">
-                  Définissez les alias, activez ou masquez les colonnes, et configurez vos filtres métier.
-                </p>
-              </div>
-
-              {query.selectedFields.length > 0 && (
-                <button
-                  onClick={() => onUpdateQuery((prev) => ({ ...prev, selectedFields: [] }))}
-                  className="text-xs text-rose-400 hover:text-rose-300 flex items-center gap-1"
-                >
-                  <Trash2 className="w-3.5 h-3.5" /> Tout retirer
-                </button>
-              )}
-            </div>
-
+          <div className="space-y-3">
             {query.selectedFields.length === 0 ? (
-              <div className="border border-dashed border-slate-800 rounded-xl p-12 text-center space-y-3 bg-slate-900/30">
-                <Database className="w-10 h-10 text-slate-600 mx-auto" />
-                <h3 className="text-sm font-semibold text-slate-200">Aucun champ sélectionné</h3>
+              <div className="border border-dashed border-slate-800 rounded-xl p-12 text-center bg-slate-900/30">
+                <Database className="w-10 h-10 text-slate-600 mx-auto mb-3" />
+                <h3 className="text-sm font-semibold text-slate-200 mb-1">
+                  Votre requête est actuellement vide
+                </h3>
                 <p className="text-xs text-slate-400 max-w-md mx-auto">
-                  Dans le panneau gauche, explorez les tables PeopleSoft FSCM (Achats, Fournisseurs, Grand
-                  Livre...) et cliquez sur les champs pour les ajouter à votre requête.
+                  Cliquez sur n'importe quel champ dans le catalogue PeopleSoft à gauche pour l'ajouter à votre sélection.
                 </p>
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {query.selectedFields.map((field, idx) => {
                   const tableMeta = tablesMap.get(field.recordName);
                   const fieldMeta = tableMeta?.fields.find((f) => f.fieldName === field.fieldName);
@@ -240,111 +550,108 @@ export const QueryBuilderPanel: React.FC<QueryBuilderPanelProps> = ({
                   return (
                     <div
                       key={field.id}
-                      className={`p-3.5 rounded-xl border transition-all space-y-3 ${
-                        field.filterActive
-                          ? 'bg-slate-900/90 border-amber-500/30 shadow-sm'
-                          : 'bg-slate-900/50 border-slate-800/80 hover:border-slate-700'
-                      }`}
+                      className="bg-slate-900/80 hover:bg-slate-900 border border-slate-800 rounded-xl p-3 space-y-2.5 transition-all text-xs"
                     >
-                      {/* Top Row: Table origin, field name, French label, reorder, and visibility */}
-                      <div className="flex items-center justify-between gap-3 flex-wrap">
+                      {/* Line 1: Field name, Table badge, Keys, Actions */}
+                      <div className="flex items-center justify-between gap-3">
                         <div className="flex items-center gap-2 min-w-0">
-                          {/* Reordering */}
-                          <div className="flex items-center gap-0.5 text-slate-500">
-                            <button
-                              disabled={idx === 0}
-                              onClick={() => handleMoveField(idx, 'up')}
-                              className="p-1 hover:text-slate-200 disabled:opacity-20"
-                              title="Déplacer vers le haut"
-                            >
-                              <MoveUp className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              disabled={idx === query.selectedFields.length - 1}
-                              onClick={() => handleMoveField(idx, 'down')}
-                              className="p-1 hover:text-slate-200 disabled:opacity-20"
-                              title="Déplacer vers le bas"
-                            >
-                              <MoveDown className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
+                          <span className="text-slate-400 font-mono text-[11px] w-5 text-right shrink-0">
+                            #{idx + 1}
+                          </span>
 
-                          {/* Table Badge */}
-                          <span className="font-mono text-[11px] px-2 py-0.5 rounded bg-slate-800 text-amber-300 font-semibold border border-slate-700">
+                          <span className="font-mono font-bold text-slate-100 text-xs truncate">
+                            {field.fieldName}
+                          </span>
+
+                          <span className="text-slate-400 truncate max-w-xs text-[11px]">
+                            {fieldMeta?.label || field.fieldName}
+                          </span>
+
+                          <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-amber-400 border border-slate-700 shrink-0">
                             {field.recordName}
                           </span>
 
-                          <span className="font-mono text-xs font-bold text-slate-100">
-                            .{field.fieldName}
-                          </span>
+                          {fieldMeta?.isKey && (
+                            <span className="text-[10px] px-1 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold shrink-0">
+                              KEY
+                            </span>
+                          )}
 
-                          <span className="text-xs text-slate-400 font-normal truncate max-w-xs">
-                            — {fieldMeta?.label || field.fieldName}
+                          <span className="font-mono text-[10px] text-slate-400 shrink-0">
+                            {fieldMeta?.dataType}
                           </span>
                         </div>
 
-                        {/* Right: Alias & Visibility & Delete */}
-                        <div className="flex items-center gap-3 shrink-0">
-                          <div className="flex items-center gap-1.5">
-                            <label className="text-[11px] text-slate-400">Alias SQL :</label>
-                            <input
-                              type="text"
-                              value={field.alias}
-                              onChange={(e) =>
-                                handleUpdateField(field.id, {
-                                  alias: e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, ''),
-                                })
-                              }
-                              placeholder={field.fieldName}
-                              className="font-mono text-xs bg-slate-950 border border-slate-700 rounded px-2 py-1 text-amber-200 w-32 focus:outline-none focus:border-amber-500"
-                            />
-                          </div>
+                        {/* Top-right Actions: Reorder, Visibility, Filter toggle, Remove */}
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            onClick={() => handleMoveField(idx, 'up')}
+                            disabled={idx === 0}
+                            className="p-1 text-slate-400 hover:text-slate-200 disabled:opacity-20 rounded"
+                            title="Monter"
+                          >
+                            <MoveUp className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleMoveField(idx, 'down')}
+                            disabled={idx === query.selectedFields.length - 1}
+                            className="p-1 text-slate-400 hover:text-slate-200 disabled:opacity-20 rounded"
+                            title="Descendre"
+                          >
+                            <MoveDown className="w-3.5 h-3.5" />
+                          </button>
 
                           <button
-                            onClick={() =>
-                              handleUpdateField(field.id, { isVisible: !field.isVisible })
-                            }
-                            className={`p-1.5 rounded transition-colors ${
+                            onClick={() => handleToggleVisibility(field.id)}
+                            className={`p-1 rounded ${
                               field.isVisible
-                                ? 'text-amber-400 bg-amber-500/10 hover:bg-amber-500/20'
-                                : 'text-slate-500 bg-slate-800 hover:text-slate-300'
+                                ? 'text-amber-400 hover:bg-amber-500/10'
+                                : 'text-slate-400 hover:text-slate-400'
                             }`}
-                            title={
-                              field.isVisible
-                                ? 'Affiché dans le SELECT'
-                                : 'Masqué du SELECT (utilisé pour filtrer uniquement)'
-                            }
+                            title={field.isVisible ? 'Affiché dans le SELECT' : 'Masqué (utilisé pour filtre/tri)'}
                           >
-                            {field.isVisible ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                            {field.isVisible ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                          </button>
+
+                          <button
+                            onClick={() => handleToggleFilter(field.id)}
+                            className={`p-1 rounded ${
+                              field.filterActive
+                                ? 'text-emerald-400 bg-emerald-950/40 border border-emerald-800/60'
+                                : 'text-slate-400 hover:text-slate-200'
+                            }`}
+                            title="Filtrer sur ce champ (WHERE)"
+                          >
+                            <Filter className="w-3.5 h-3.5" />
                           </button>
 
                           <button
                             onClick={() => handleRemoveField(field.id)}
-                            className="p-1.5 text-slate-500 hover:text-rose-400 hover:bg-rose-950/30 rounded transition-colors"
-                            title="Supprimer ce champ"
+                            className="p-1 text-slate-400 hover:text-rose-400 hover:bg-rose-950/30 rounded"
+                            title="Retirer le champ"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </div>
                       </div>
 
-                      {/* Bottom Row: Filter / Fixed value section */}
-                      <div className="pt-2 border-t border-slate-800/60 flex items-center gap-3 flex-wrap bg-slate-950/40 p-2.5 rounded-lg text-xs">
-                        <label className="flex items-center gap-1.5 cursor-pointer font-medium text-slate-300 select-none">
+                      {/* Line 2: Alias and Filters options */}
+                      <div className="flex items-center gap-3 pt-1 border-t border-slate-800/60 flex-wrap">
+                        {/* Column SQL Alias */}
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[11px] text-slate-400 font-medium">Alias :</span>
                           <input
-                            type="checkbox"
-                            checked={field.filterActive}
+                            type="text"
+                            value={field.alias}
                             onChange={(e) =>
-                              handleUpdateField(field.id, {
-                                filterActive: e.target.checked,
-                                filterOperator: field.filterOperator || '=',
-                              })
+                              handleUpdateField(field.id, { alias: e.target.value.toUpperCase() })
                             }
-                            className="rounded border-slate-700 text-amber-500 focus:ring-0 bg-slate-900"
+                            placeholder="Alias SQL..."
+                            className="bg-slate-950 border border-slate-700 rounded px-2 py-0.5 text-xs text-amber-200 font-mono w-32 focus:outline-none focus:border-amber-500"
                           />
-                          <span>Filtrer sur ce champ</span>
-                        </label>
+                        </div>
 
+                        {/* Active Filter Input row */}
                         {field.filterActive && (
                           <>
                             <select
@@ -354,18 +661,18 @@ export const QueryBuilderPanel: React.FC<QueryBuilderPanelProps> = ({
                                   filterOperator: e.target.value as FilterOperator,
                                 })
                               }
-                              className="bg-slate-900 border border-slate-700 rounded px-2.5 py-1 text-slate-200 font-mono text-xs focus:outline-none focus:border-amber-500"
+                              className="bg-slate-950 border border-slate-700 rounded px-2 py-0.5 text-xs text-emerald-300 font-mono focus:outline-none focus:border-amber-500 font-bold"
                             >
                               <option value="=">=</option>
-                              <option value="<>">&lt;&gt; (différent)</option>
-                              <option value="IN">IN (liste de valeurs)</option>
+                              <option value="<>">≠ (&lt;&gt;)</option>
+                              <option value="LIKE">LIKE (contient %)</option>
+                              <option value="IN">IN (liste valeurs)</option>
                               <option value="NOT IN">NOT IN</option>
-                              <option value="LIKE">LIKE (contient)</option>
                               <option value=">">&gt;</option>
                               <option value=">=">&gt;=</option>
                               <option value="<">&lt;</option>
                               <option value="<=">&lt;=</option>
-                              <option value="BETWEEN">BETWEEN (entre 2 bornes)</option>
+                              <option value="BETWEEN">BETWEEN</option>
                               <option value="IS NULL">IS NULL</option>
                               <option value="IS NOT NULL">IS NOT NULL</option>
                             </select>
@@ -383,7 +690,7 @@ export const QueryBuilderPanel: React.FC<QueryBuilderPanelProps> = ({
                                       ? 'VAL1, VAL2 ou retour à la ligne'
                                       : 'Valeur de filtre...'
                                   }
-                                  className="flex-1 bg-slate-900 border border-slate-700 rounded px-2.5 py-1 text-slate-100 placeholder-slate-400 focus:outline-none focus:border-amber-500"
+                                  className="flex-1 bg-slate-950 border border-slate-700 rounded px-2.5 py-0.5 text-slate-100 placeholder-slate-400 focus:outline-none focus:border-amber-500"
                                 />
                               )}
 
@@ -397,7 +704,7 @@ export const QueryBuilderPanel: React.FC<QueryBuilderPanelProps> = ({
                                     handleUpdateField(field.id, { filterValue2: e.target.value })
                                   }
                                   placeholder="Borne max..."
-                                  className="bg-slate-900 border border-slate-700 rounded px-2.5 py-1 text-slate-100 placeholder-slate-400 focus:outline-none focus:border-amber-500 w-28"
+                                  className="bg-slate-950 border border-slate-700 rounded px-2.5 py-0.5 text-slate-100 placeholder-slate-400 focus:outline-none focus:border-amber-500 w-28"
                                 />
                               </div>
                             )}
@@ -415,30 +722,252 @@ export const QueryBuilderPanel: React.FC<QueryBuilderPanelProps> = ({
         {/* TAB 2: JOINS & GRAPH RESOLUTION */}
         {activeTab === 'joins' && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
+            {/* Header with Add Join Action */}
+            <div className="flex items-center justify-between gap-3 flex-wrap">
               <div>
-                <h2 className="text-sm font-bold text-white tracking-tight">
-                  Configuration des jointures PeopleSoft
+                <h2 className="text-sm font-bold text-white tracking-tight flex items-center gap-2">
+                  <span>Configuration des jointures PeopleSoft</span>
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 font-mono">
+                    {query.joins.length} jointure{query.joins.length > 1 ? 's' : ''}
+                  </span>
                 </h2>
                 <p className="text-xs text-slate-400">
-                  Le moteur de graphe calcule le chemin le plus court et connecte automatiquement vos tables.
+                  Combinez les jointures calculées automatiquement avec vos propres jointures personnalisées sur mesure.
                 </p>
               </div>
 
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-slate-400">Table pivot :</span>
-                <span className="font-mono text-xs px-2 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/20 font-bold">
-                  {query.baseTable || 'Aucune'}
-                </span>
-              </div>
+              <button
+                onClick={() => handleStartAddJoin()}
+                className="px-3 py-1.5 text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-lg transition-colors flex items-center gap-1.5 shadow-sm shadow-amber-500/20"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Ajouter une jointure personnalisée
+              </button>
             </div>
+
+            {/* Disconnected Tables Warning Banner */}
+            {disconnectedTables.length > 0 && (
+              <div className="p-3 bg-amber-950/40 border border-amber-800/60 rounded-xl flex items-center justify-between gap-3 text-xs">
+                <div className="flex items-center gap-2 text-amber-200">
+                  <span className="font-bold">Attention :</span>
+                  <span>
+                    La table{' '}
+                    <strong className="font-mono text-amber-300">{disconnectedTables.join(', ')}</strong>{' '}
+                    n'est reliée à aucune autre table dans la requête.
+                  </span>
+                </div>
+                <button
+                  onClick={() => handleStartAddJoin(query.baseTable || undefined, disconnectedTables[0])}
+                  className="px-2.5 py-1 text-xs font-semibold bg-amber-500 text-slate-950 rounded hover:bg-amber-400 transition-colors shrink-0"
+                >
+                  Relier maintenant
+                </button>
+              </div>
+            )}
+
+            {/* Custom Join Creation / Edit Form Card */}
+            {isCreatingJoin && (
+              <div className="p-4 bg-slate-900 border-2 border-amber-500/50 rounded-xl space-y-4 shadow-xl">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                  <div className="flex items-center gap-2">
+                    <Link2 className="w-4 h-4 text-amber-400" />
+                    <h3 className="text-xs font-bold text-white">
+                      {editingJoinId ? 'Modifier la jointure' : 'Nouvelle jointure personnalisée'}
+                    </h3>
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      setIsCreatingJoin(false);
+                      setEditingJoinId(null);
+                    }}
+                    className="p-1 text-slate-400 hover:text-white rounded"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {joinFormError && (
+                  <div className="p-2.5 bg-rose-950/40 border border-rose-800/60 rounded text-rose-300 text-xs font-medium">
+                    {joinFormError}
+                  </div>
+                )}
+
+                {/* Table 1, Join Type, Table 2 Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-semibold text-slate-300 block">
+                      Table source (gauche) :
+                    </label>
+                    <select
+                      value={customLeftTable}
+                      onChange={(e) => handleTableChange('left', e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-amber-300 font-mono font-bold focus:outline-none focus:border-amber-500"
+                    >
+                      {FSCM_TABLES.map((t) => (
+                        <option key={t.recordName} value={t.recordName}>
+                          {t.recordName} — {t.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-semibold text-slate-300 block">
+                      Type de jointure SQL :
+                    </label>
+                    <select
+                      value={customJoinType}
+                      onChange={(e) => setCustomJoinType(e.target.value as JoinType)}
+                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 font-mono font-medium focus:outline-none focus:border-amber-500"
+                    >
+                      <option value="INNER JOIN">INNER JOIN (Stricte)</option>
+                      <option value="LEFT JOIN">LEFT JOIN (Externe gauche)</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-semibold text-slate-300 block">
+                      Table cible (droite) :
+                    </label>
+                    <select
+                      value={customRightTable}
+                      onChange={(e) => handleTableChange('right', e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-amber-300 font-mono font-bold focus:outline-none focus:border-amber-500"
+                    >
+                      {FSCM_TABLES.map((t) => (
+                        <option key={t.recordName} value={t.recordName}>
+                          {t.recordName} — {t.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Conditions (ON) */}
+                <div className="space-y-2 pt-2 border-t border-slate-800">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-slate-200">
+                      Critères d'égalité (Clause ON) :
+                    </span>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleSuggestRelationConditions}
+                        className="text-[11px] text-amber-400 hover:text-amber-300 flex items-center gap-1 font-medium hover:underline"
+                        title="Détecter les clés correspondantes ou la relation ERD"
+                      >
+                        <Sparkles className="w-3 h-3" /> Suggérer les champs clés
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleAddCustomCondition}
+                        className="text-[11px] bg-slate-800 hover:bg-slate-700 text-slate-200 px-2 py-1 rounded font-medium flex items-center gap-1"
+                      >
+                        <Plus className="w-3 h-3" /> Ajouter un critère (AND)
+                      </button>
+                    </div>
+                  </div>
+
+                  {customConditions.map((cond, cIdx) => {
+                    const leftFields = tablesMap.get(customLeftTable)?.fields || [];
+                    const rightFields = tablesMap.get(customRightTable)?.fields || [];
+
+                    return (
+                      <div
+                        key={cIdx}
+                        className="flex items-center gap-2 p-2 bg-slate-950 rounded-lg border border-slate-800 text-xs"
+                      >
+                        <span className="text-slate-400 font-mono text-[11px] w-6">
+                          {cIdx === 0 ? 'ON' : 'AND'}
+                        </span>
+
+                        {/* Left Field Select */}
+                        <div className="flex-1">
+                          <select
+                            value={cond.sourceField}
+                            onChange={(e) =>
+                              handleUpdateCustomCondition(cIdx, 'sourceField', e.target.value)
+                            }
+                            className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-200 font-mono text-xs focus:outline-none focus:border-amber-500"
+                          >
+                            <option value="">Sélectionner un champ gauche...</option>
+                            {leftFields.map((f) => (
+                              <option key={f.fieldName} value={f.fieldName}>
+                                {customLeftTable}.{f.fieldName} ({f.label}){f.isKey ? ' [KEY]' : ''}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <span className="text-slate-400 font-bold">=</span>
+
+                        {/* Right Field Select */}
+                        <div className="flex-1">
+                          <select
+                            value={cond.targetField}
+                            onChange={(e) =>
+                              handleUpdateCustomCondition(cIdx, 'targetField', e.target.value)
+                            }
+                            className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-200 font-mono text-xs focus:outline-none focus:border-amber-500"
+                          >
+                            <option value="">Sélectionner un champ droit...</option>
+                            {rightFields.map((f) => (
+                              <option key={f.fieldName} value={f.fieldName}>
+                                {customRightTable}.{f.fieldName} ({f.label}){f.isKey ? ' [KEY]' : ''}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        {customConditions.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveCustomCondition(cIdx)}
+                            className="p-1 text-slate-400 hover:text-rose-400 rounded"
+                            title="Supprimer ce critère"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Form Buttons */}
+                <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsCreatingJoin(false);
+                      setEditingJoinId(null);
+                    }}
+                    className="px-3 py-1.5 text-xs text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors"
+                  >
+                    Annuler
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleSaveCustomJoin}
+                    className="px-4 py-1.5 text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-lg transition-colors flex items-center gap-1.5"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                    Enregistrer la jointure
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Intermediate Bridge Tables Alert */}
             {intermediateTables.length > 0 && (
               <div className="p-3.5 bg-sky-950/30 border border-sky-800/40 rounded-xl space-y-2">
                 <div className="flex items-center gap-2 text-xs font-semibold text-sky-300">
                   <GitBranch className="w-4 h-4 text-sky-400" />
-                  Tables intermédiaires ajoutées automatiquement par le moteur de jointures :
+                  Tables intermédiaires ajoutées automatiquement par le modèle :
                 </div>
                 <div className="space-y-1">
                   {intermediateTables.map((inter, idx) => (
@@ -454,18 +983,24 @@ export const QueryBuilderPanel: React.FC<QueryBuilderPanelProps> = ({
               </div>
             )}
 
+            {/* Joins List */}
             {query.joins.length === 0 ? (
-              <div className="border border-dashed border-slate-800 rounded-xl p-8 text-center bg-slate-900/30">
+              <div className="border border-dashed border-slate-800 rounded-xl p-8 text-center bg-slate-900/30 space-y-3">
                 <p className="text-xs text-slate-300 font-medium">
                   {query.baseTable
                     ? `Une seule table (${query.baseTable}) est active pour le moment.`
                     : 'Aucune table sélectionnée pour le moment.'}
                 </p>
-                <p className="text-[11px] text-slate-400 mt-1">
-                  {query.baseTable
-                    ? 'Lorsque vous sélectionnerez des champs issus d’une autre table (ex: VENDOR, PO_LINE, PSOPRDEFN), le graphe PeopleSoft créera les jointures composites automatiquement.'
-                    : 'Sélectionnez des champs dans le catalogue à gauche pour activer des tables et construire des jointures automatiques.'}
+                <p className="text-[11px] text-slate-400 max-w-md mx-auto">
+                  Les jointures se créent automatiquement dès que vous sélectionnez des champs de tables différentes. Vous pouvez également en créer manuellement dès maintenant.
                 </p>
+                <button
+                  onClick={() => handleStartAddJoin()}
+                  className="px-3 py-1.5 text-xs font-bold bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 rounded-lg transition-colors inline-flex items-center gap-1.5"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  Créer une jointure manuelle
+                </button>
               </div>
             ) : (
               <div className="space-y-3">
@@ -479,7 +1014,18 @@ export const QueryBuilderPanel: React.FC<QueryBuilderPanelProps> = ({
                       className="p-4 bg-slate-900/70 border border-slate-800 rounded-xl space-y-3 text-xs"
                     >
                       <div className="flex items-center justify-between gap-3 flex-wrap">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {/* Auto vs Custom Badge */}
+                          {join.isAutoDetected ? (
+                            <span className="px-2 py-0.5 rounded bg-sky-950/80 text-sky-300 border border-sky-800/60 font-medium text-[11px] flex items-center gap-1">
+                              <GitBranch className="w-3 h-3" /> Auto (ERD 9.2)
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded bg-amber-950/80 text-amber-300 border border-amber-800/60 font-medium text-[11px] flex items-center gap-1">
+                              <Sliders className="w-3 h-3" /> Personnalisée
+                            </span>
+                          )}
+
                           <span className="font-mono font-bold text-amber-300 px-2 py-0.5 rounded bg-slate-950 border border-slate-800">
                             {join.leftTable}
                           </span>
@@ -505,6 +1051,14 @@ export const QueryBuilderPanel: React.FC<QueryBuilderPanelProps> = ({
                           </select>
 
                           <button
+                            onClick={() => handleStartEditJoin(join)}
+                            className="p-1.5 text-slate-400 hover:text-amber-400 hover:bg-slate-800 rounded transition-colors"
+                            title="Modifier les critères de cette jointure"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+
+                          <button
                             onClick={() => handleRemoveJoin(join.id)}
                             className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-950/30 rounded transition-colors"
                             title="Supprimer cette jointure"
@@ -516,8 +1070,16 @@ export const QueryBuilderPanel: React.FC<QueryBuilderPanelProps> = ({
 
                       {/* Composite Condition Criteria */}
                       <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-800/80 font-mono text-xs text-slate-300 space-y-1">
-                        <div className="text-[10px] text-slate-400 font-sans font-semibold mb-1">
-                          Critères de jointure composite PeopleSoft :
+                        <div className="flex items-center justify-between mb-1">
+                          <div className="text-[10px] text-slate-400 font-sans font-semibold">
+                            Critères de jointure ({join.conditions.length}) :
+                          </div>
+                          <button
+                            onClick={() => handleStartEditJoin(join)}
+                            className="text-[10px] text-amber-400 hover:underline font-sans"
+                          >
+                            + Modifier les champs
+                          </button>
                         </div>
                         {join.conditions.map((cond, cIdx) => (
                           <div key={cIdx} className="flex items-center gap-2">
@@ -652,9 +1214,10 @@ export const QueryBuilderPanel: React.FC<QueryBuilderPanelProps> = ({
 
                         <button
                           onClick={() => handleRemoveSort(sort.id)}
-                          className="p-1 text-slate-500 hover:text-rose-400 rounded ml-auto"
+                          className="p-1 text-slate-400 hover:text-rose-400 rounded"
+                          title="Supprimer ce tri"
                         >
-                          <X className="w-3.5 h-3.5" />
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     );

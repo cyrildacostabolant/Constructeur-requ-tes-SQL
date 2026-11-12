@@ -82,13 +82,21 @@ export default function App() {
           newBase = remainingTables.length > 0 ? remainingTables[0] : '';
         }
 
-        // Auto-recalculate joins
-        let newJoins = prev.joins;
+        // Auto-recalculate joins while strictly preserving custom user joins
+        const customJoins = prev.joins.filter((j) => !j.isAutoDetected);
+        const customPairs = new Set(
+          customJoins.map((cj) => `${cj.leftTable}---${cj.rightTable}`)
+        );
+
+        let newJoins = customJoins;
         if (remainingTables.length > 1) {
           const autoRes = graphEngine.resolveJoinsForTables(newBase, remainingTables);
-          newJoins = autoRes.joins;
-        } else if (remainingTables.length <= 1) {
-          newJoins = [];
+          const filteredAuto = autoRes.joins.filter(
+            (aj) =>
+              !customPairs.has(`${aj.leftTable}---${aj.rightTable}`) &&
+              !customPairs.has(`${aj.rightTable}---${aj.leftTable}`)
+          );
+          newJoins = [...filteredAuto, ...customJoins];
         }
 
         return {
@@ -116,22 +124,33 @@ export default function App() {
 
         // Check if new table requires join
         const distinctTables = Array.from(new Set(newFields.map((f) => f.recordName)));
-        let newJoins = prev.joins;
+        const customJoins = prev.joins.filter((j) => !j.isAutoDetected);
+        const customPairs = new Set(
+          customJoins.map((cj) => `${cj.leftTable}---${cj.rightTable}`)
+        );
 
+        let newJoins = customJoins;
         if (distinctTables.length > 1) {
           const autoRes = graphEngine.resolveJoinsForTables(newBase, distinctTables);
           // Keep user-modified join types if exists, otherwise take auto
-          newJoins = autoRes.joins.map((aj) => {
-            const existing = prev.joins.find(
-              (ej) =>
-                (ej.leftTable === aj.leftTable && ej.rightTable === aj.rightTable) ||
-                (ej.leftTable === aj.rightTable && ej.rightTable === aj.leftTable)
-            );
-            if (existing && existing.userModified) {
-              return { ...aj, joinType: existing.joinType, userModified: true };
-            }
-            return aj;
-          });
+          const filteredAuto = autoRes.joins
+            .filter(
+              (aj) =>
+                !customPairs.has(`${aj.leftTable}---${aj.rightTable}`) &&
+                !customPairs.has(`${aj.rightTable}---${aj.leftTable}`)
+            )
+            .map((aj) => {
+              const existing = prev.joins.find(
+                (ej) =>
+                  (ej.leftTable === aj.leftTable && ej.rightTable === aj.rightTable) ||
+                  (ej.leftTable === aj.rightTable && ej.rightTable === aj.leftTable)
+              );
+              if (existing && existing.userModified) {
+                return { ...aj, joinType: existing.joinType, userModified: true };
+              }
+              return aj;
+            });
+          newJoins = [...filteredAuto, ...customJoins];
         }
 
         // Enable EFFDT rule by default if table has EFFDT
@@ -182,10 +201,20 @@ export default function App() {
       const newBase = prev.baseTable || table.recordName;
 
       const distinctTables = Array.from(new Set(newFields.map((f) => f.recordName)));
-      let newJoins = prev.joins;
+      const customJoins = prev.joins.filter((j) => !j.isAutoDetected);
+      const customPairs = new Set(
+        customJoins.map((cj) => `${cj.leftTable}---${cj.rightTable}`)
+      );
+
+      let newJoins = customJoins;
       if (distinctTables.length > 1) {
         const autoRes = graphEngine.resolveJoinsForTables(newBase, distinctTables);
-        newJoins = autoRes.joins;
+        const filteredAuto = autoRes.joins.filter(
+          (aj) =>
+            !customPairs.has(`${aj.leftTable}---${aj.rightTable}`) &&
+            !customPairs.has(`${aj.rightTable}---${aj.leftTable}`)
+        );
+        newJoins = [...filteredAuto, ...customJoins];
       }
 
       return {

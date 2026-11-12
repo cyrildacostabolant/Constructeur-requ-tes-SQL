@@ -112,9 +112,87 @@ export class PeopleSoftSqlGenerator {
 
     let fromClause = `FROM ${baseSqlName} ${baseAlias}`;
     const joinsExplained: string[] = [];
+    const joinedTablesInFrom = new Set<string>();
+    if (query.baseTable) {
+      joinedTablesInFrom.add(query.baseTable);
+    }
 
-    // Order joins safely starting from baseTable
-    for (const j of query.joins) {
+    let remainingJoins = [...query.joins];
+
+    // Iteratively attach joins that connect to an already joined table
+    let progress = true;
+    while (remainingJoins.length > 0 && progress) {
+      progress = false;
+      const nextRemaining: typeof query.joins = [];
+
+      for (const j of remainingJoins) {
+        const leftJoined = joinedTablesInFrom.has(j.leftTable);
+        const rightJoined = joinedTablesInFrom.has(j.rightTable);
+
+        if (leftJoined && !rightJoined) {
+          // Normal direction: left table in FROM, join right table
+          const rightMeta = tablesMap.get(j.rightTable);
+          const rightSqlName = rightMeta ? rightMeta.sqlName : `PS_${j.rightTable}`;
+          const leftAlias = aliasMap.get(j.leftTable) || j.leftTable;
+          const rightAlias = aliasMap.get(j.rightTable) || j.rightTable;
+
+          const condStrings = j.conditions.map((c) => {
+            return `${leftAlias}.${c.sourceField} = ${rightAlias}.${c.targetField}`;
+          });
+
+          const onClause = condStrings.length > 0 ? condStrings.join(' AND ') : '1 = 1';
+          fromClause += `\n${j.joinType} ${rightSqlName} ${rightAlias}\n  ON (${onClause})`;
+          joinedTablesInFrom.add(j.rightTable);
+          progress = true;
+
+          const leftLabel = tablesMap.get(j.leftTable)?.label || j.leftTable;
+          const rightLabel = tablesMap.get(j.rightTable)?.label || j.rightTable;
+          joinsExplained.push(
+            `${j.joinType === 'INNER JOIN' ? 'Jointure interne' : 'Jointure externe gauche'} entre ${leftLabel} (${leftAlias}) et ${rightLabel} (${rightAlias}) sur [${condStrings.join(', ')}]`
+          );
+        } else if (!leftJoined && rightJoined) {
+          // Reverse direction: right table in FROM, join left table
+          const leftMeta = tablesMap.get(j.leftTable);
+          const leftSqlName = leftMeta ? leftMeta.sqlName : `PS_${j.leftTable}`;
+          const leftAlias = aliasMap.get(j.leftTable) || j.leftTable;
+          const rightAlias = aliasMap.get(j.rightTable) || j.rightTable;
+
+          const condStrings = j.conditions.map((c) => {
+            return `${leftAlias}.${c.sourceField} = ${rightAlias}.${c.targetField}`;
+          });
+
+          const onClause = condStrings.length > 0 ? condStrings.join(' AND ') : '1 = 1';
+          fromClause += `\n${j.joinType} ${leftSqlName} ${leftAlias}\n  ON (${onClause})`;
+          joinedTablesInFrom.add(j.leftTable);
+          progress = true;
+
+          const leftLabel = tablesMap.get(j.leftTable)?.label || j.leftTable;
+          const rightLabel = tablesMap.get(j.rightTable)?.label || j.rightTable;
+          joinsExplained.push(
+            `${j.joinType === 'INNER JOIN' ? 'Jointure interne' : 'Jointure externe gauche'} entre ${rightLabel} (${rightAlias}) et ${leftLabel} (${leftAlias}) sur [${condStrings.join(', ')}]`
+          );
+        } else if (leftJoined && rightJoined) {
+          // Both tables already present in the FROM tree: no need to re-JOIN same table, but log rule
+          progress = true;
+          const leftAlias = aliasMap.get(j.leftTable) || j.leftTable;
+          const rightAlias = aliasMap.get(j.rightTable) || j.rightTable;
+          const condStrings = j.conditions.map((c) => `${leftAlias}.${c.sourceField} = ${rightAlias}.${c.targetField}`);
+          const leftLabel = tablesMap.get(j.leftTable)?.label || j.leftTable;
+          const rightLabel = tablesMap.get(j.rightTable)?.label || j.rightTable;
+          joinsExplained.push(
+            `Relation directe existante entre ${leftLabel} et ${rightLabel} sur [${condStrings.join(', ')}]`
+          );
+        } else {
+          // Neither table in FROM yet: wait for another join to connect
+          nextRemaining.push(j);
+        }
+      }
+
+      remainingJoins = nextRemaining;
+    }
+
+    // Fallback for any disconnected joins (e.g., cross joins or orphan table joins)
+    for (const j of remainingJoins) {
       const rightMeta = tablesMap.get(j.rightTable);
       const rightSqlName = rightMeta ? rightMeta.sqlName : `PS_${j.rightTable}`;
       const leftAlias = aliasMap.get(j.leftTable) || j.leftTable;
@@ -126,12 +204,7 @@ export class PeopleSoftSqlGenerator {
 
       const onClause = condStrings.length > 0 ? condStrings.join(' AND ') : '1 = 1';
       fromClause += `\n${j.joinType} ${rightSqlName} ${rightAlias}\n  ON (${onClause})`;
-
-      const leftLabel = tablesMap.get(j.leftTable)?.label || j.leftTable;
-      const rightLabel = tablesMap.get(j.rightTable)?.label || j.rightTable;
-      joinsExplained.push(
-        `${j.joinType === 'INNER JOIN' ? 'Jointure interne' : 'Jointure externe gauche'} entre ${leftLabel} (${leftAlias}) et ${rightLabel} (${rightAlias}) sur [${condStrings.join(', ')}]`
-      );
+      joinedTablesInFrom.add(j.rightTable);
     }
 
     // 7. Build WHERE clause (Filters & EFFDT)

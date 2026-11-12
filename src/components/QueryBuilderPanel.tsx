@@ -463,7 +463,7 @@ export const QueryBuilderPanel: React.FC<QueryBuilderPanelProps> = ({
                 </p>
                 <p className="text-[11px] text-slate-400 mt-1">
                   {query.baseTable
-                    ? 'Lorsque vous sélectionnerez des champs issus d’une autre table (ex: VENDOR, PO_LINE, GL_ACCOUNT_TBL), le graphe PeopleSoft créera les jointures composites automatiquement.'
+                    ? 'Lorsque vous sélectionnerez des champs issus d’une autre table (ex: VENDOR, PO_LINE, PSOPRDEFN), le graphe PeopleSoft créera les jointures composites automatiquement.'
                     : 'Sélectionnez des champs dans le catalogue à gauche pour activer des tables et construire des jointures automatiques.'}
                 </p>
               </div>
@@ -570,7 +570,7 @@ export const QueryBuilderPanel: React.FC<QueryBuilderPanelProps> = ({
 
               <div className="p-4 bg-slate-900/60 border border-slate-800 rounded-xl space-y-2">
                 <label className="text-xs font-semibold text-slate-200 block">
-                  Limite de lignes retournées (FETCH FIRST / TOP) :
+                  Limite de lignes retournées (optionnel) :
                 </label>
                 <input
                   type="number"
@@ -583,9 +583,12 @@ export const QueryBuilderPanel: React.FC<QueryBuilderPanelProps> = ({
                       rowLimit: e.target.value ? parseInt(e.target.value, 10) : undefined,
                     }))
                   }
-                  placeholder="Ex: 100"
+                  placeholder="Aucune limite (sans restriction)"
                   className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-100 focus:outline-none focus:border-amber-500 font-mono"
                 />
+                <p className="text-[11px] text-slate-400">
+                  Laisser vide pour ne pas limiter les résultats (aucune clause FETCH FIRST).
+                </p>
               </div>
             </div>
 

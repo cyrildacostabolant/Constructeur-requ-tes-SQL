@@ -25,7 +25,7 @@ const createEmptyQuery = (dialect: SqlDialect = 'oracle'): PeopleSoftQuery => ({
   joins: [],
   sorts: [],
   isDistinct: false,
-  rowLimit: 100,
+  rowLimit: undefined,
   dialect,
   useBindVariables: false,
   effdtOptions: {},

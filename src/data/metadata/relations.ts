@@ -2,14 +2,14 @@ import { PSRelation } from '../../types/peoplesoft';
 
 export const FSCM_RELATIONS: PSRelation[] = [
   // ==========================================
-  // PURCHASING (PO) RELATIONS
+  // COMMANDES D'ACHAT - CDA (PO)
   // ==========================================
   {
     id: 'rel_po_line_po_hdr',
     sourceTable: 'PO_LINE',
     targetTable: 'PO_HDR',
     cardinality: 'N-1',
-    label: 'Rattachement de la ligne à l’entête de commande d’achat',
+    label: 'Rattachement de la ligne à l’entête de commande d’achat (CDA)',
     reliability: 'Vérifié - ERD Oracle 9.2',
     isVerified: true,
     joinConditions: [
@@ -22,7 +22,7 @@ export const FSCM_RELATIONS: PSRelation[] = [
     sourceTable: 'PO_LINE_SHIP',
     targetTable: 'PO_LINE',
     cardinality: 'N-1',
-    label: 'Rattachement du programme d’expédition à la ligne de commande',
+    label: 'Rattachement de l’expédition à la ligne de commande (CDA)',
     reliability: 'Vérifié - ERD Oracle 9.2',
     isVerified: true,
     joinConditions: [
@@ -36,7 +36,7 @@ export const FSCM_RELATIONS: PSRelation[] = [
     sourceTable: 'PO_LINE_DISTRIB',
     targetTable: 'PO_LINE',
     cardinality: 'N-1',
-    label: 'Ventilation analytique vers la ligne de commande d’achat',
+    label: 'Ventilation analytique vers la ligne de commande (CDA)',
     reliability: 'Vérifié - ERD Oracle 9.2',
     isVerified: true,
     joinConditions: [
@@ -59,11 +59,53 @@ export const FSCM_RELATIONS: PSRelation[] = [
     ],
   },
   {
+    id: 'rel_po_hdr_buyer_user',
+    sourceTable: 'PO_HDR',
+    targetTable: 'PSOPRDEFN',
+    cardinality: 'N-1',
+    label: 'Acheteur responsable (BUYER_ID -> OPRID)',
+    reliability: 'Standard PeopleTools',
+    isVerified: true,
+    joinConditions: [
+      { sourceField: 'BUYER_ID', targetField: 'OPRID' },
+    ],
+  },
+  {
+    id: 'rel_po_line_item',
+    sourceTable: 'PO_LINE',
+    targetTable: 'MASTER_ITEM_TBL',
+    cardinality: 'N-1',
+    label: 'Article référencé de la ligne de commande',
+    reliability: 'Vérifié - ERD Oracle 9.2',
+    isVerified: true,
+    joinConditions: [
+      { sourceField: 'INV_ITEM_ID', targetField: 'INV_ITEM_ID' },
+    ],
+  },
+  {
+    id: 'rel_po_distrib_req_distrib',
+    sourceTable: 'PO_LINE_DISTRIB',
+    targetTable: 'REQ_LINE_DISTRIB',
+    cardinality: 'N-1',
+    label: 'Traçabilité Commande d’achat vers Demande d’achat (REQ)',
+    reliability: 'Vérifié - ERD Oracle 9.2',
+    isVerified: true,
+    joinConditions: [
+      { sourceField: 'REQ_ID', targetField: 'REQ_ID' },
+      { sourceField: 'REQ_LINE_NBR', targetField: 'LINE_NBR' },
+      { sourceField: 'REQ_DISTRIB_NBR', targetField: 'DISTRIB_LINE_NUM' },
+    ],
+  },
+
+  // ==========================================
+  // RÉCEPTIONS (RECV)
+  // ==========================================
+  {
     id: 'rel_recv_ln_recv_hdr',
     sourceTable: 'RECV_LN',
     targetTable: 'RECV_HDR',
     cardinality: 'N-1',
-    label: 'Rattachement de la ligne au bon de réception',
+    label: 'Ligne de réception vers entête de réception physique',
     reliability: 'Vérifié - ERD Oracle 9.2',
     isVerified: true,
     joinConditions: [
@@ -76,7 +118,7 @@ export const FSCM_RELATIONS: PSRelation[] = [
     sourceTable: 'RECV_LN',
     targetTable: 'PO_LINE',
     cardinality: 'N-1',
-    label: 'Rapprochement de la réception physique avec la ligne de commande',
+    label: 'Rapprochement Réception physique vers Ligne de commande',
     reliability: 'Vérifié - ERD Oracle 9.2',
     isVerified: true,
     joinConditions: [
@@ -85,43 +127,40 @@ export const FSCM_RELATIONS: PSRelation[] = [
       { sourceField: 'LINE_NBR', targetField: 'LINE_NBR' },
     ],
   },
-
-  // ==========================================
-  // ACCOUNTS PAYABLE (AP) RELATIONS
-  // ==========================================
   {
-    id: 'rel_voucher_line_voucher',
-    sourceTable: 'VOUCHER_LINE',
-    targetTable: 'VOUCHER',
+    id: 'rel_recv_ln_ship_recv_ln',
+    sourceTable: 'RECV_LN_SHIP',
+    targetTable: 'RECV_LN',
     cardinality: 'N-1',
-    label: 'Ligne de facture vers entête de facture fournisseur (Voucher)',
+    label: 'Détail livraison réception vers ligne de réception',
     reliability: 'Vérifié - ERD Oracle 9.2',
     isVerified: true,
     joinConditions: [
       { sourceField: 'BUSINESS_UNIT', targetField: 'BUSINESS_UNIT' },
-      { sourceField: 'VOUCHER_ID', targetField: 'VOUCHER_ID' },
+      { sourceField: 'RECEIVER_ID', targetField: 'RECEIVER_ID' },
+      { sourceField: 'RECV_LN_NBR', targetField: 'RECV_LN_NBR' },
     ],
   },
   {
-    id: 'rel_vchr_acctg_voucher_line',
-    sourceTable: 'VCHR_ACCTG_LINE',
-    targetTable: 'VOUCHER_LINE',
+    id: 'rel_recv_ln_distrib_recv_ln',
+    sourceTable: 'RECV_LN_DISTRIB',
+    targetTable: 'RECV_LN',
     cardinality: 'N-1',
-    label: 'Imputation comptable vers la ligne de facture fournisseur',
+    label: 'Ventilation réception vers ligne de réception',
     reliability: 'Vérifié - ERD Oracle 9.2',
     isVerified: true,
     joinConditions: [
       { sourceField: 'BUSINESS_UNIT', targetField: 'BUSINESS_UNIT' },
-      { sourceField: 'VOUCHER_ID', targetField: 'VOUCHER_ID' },
-      { sourceField: 'VOUCHER_LINE_NUM', targetField: 'VOUCHER_LINE_NUM' },
+      { sourceField: 'RECEIVER_ID', targetField: 'RECEIVER_ID' },
+      { sourceField: 'RECV_LN_NBR', targetField: 'RECV_LN_NBR' },
     ],
   },
   {
-    id: 'rel_voucher_vendor',
-    sourceTable: 'VOUCHER',
+    id: 'rel_recv_hdr_vendor',
+    sourceTable: 'RECV_HDR',
     targetTable: 'VENDOR',
     cardinality: 'N-1',
-    label: 'Fournisseur émetteur de la facture',
+    label: 'Fournisseur expéditeur de la réception',
     reliability: 'Vérifié - ERD Oracle 9.2',
     isVerified: true,
     joinConditions: [
@@ -130,47 +169,194 @@ export const FSCM_RELATIONS: PSRelation[] = [
     ],
   },
   {
-    id: 'rel_voucher_line_po_line',
-    sourceTable: 'VOUCHER_LINE',
-    targetTable: 'PO_LINE',
+    id: 'rel_recv_ln_item',
+    sourceTable: 'RECV_LN',
+    targetTable: 'MASTER_ITEM_TBL',
     cardinality: 'N-1',
-    label: 'Rapprochement 3-voies (Matching) Facture vers Commande d’achat',
+    label: 'Article réceptionné vers catalogue maître',
     reliability: 'Vérifié - ERD Oracle 9.2',
     isVerified: true,
     joinConditions: [
-      { sourceField: 'PO_BU', targetField: 'BUSINESS_UNIT' },
-      { sourceField: 'PO_ID', targetField: 'PO_ID' },
-      { sourceField: 'LINE_NBR', targetField: 'LINE_NBR' },
+      { sourceField: 'INV_ITEM_ID', targetField: 'INV_ITEM_ID' },
     ],
   },
+
+  // ==========================================
+  // DEMANDES D'ACHAT (REQ)
+  // ==========================================
   {
-    id: 'rel_pymnt_vchr_voucher',
-    sourceTable: 'PYMNT_VCHR_XREF',
-    targetTable: 'VOUCHER',
+    id: 'rel_req_line_req_hdr',
+    sourceTable: 'REQ_LINE',
+    targetTable: 'REQ_HDR',
     cardinality: 'N-1',
-    label: 'Liaison paiement vers la facture fournisseur réglée',
+    label: 'Ligne de demande d’achat vers son entête (REQ)',
     reliability: 'Vérifié - ERD Oracle 9.2',
     isVerified: true,
     joinConditions: [
       { sourceField: 'BUSINESS_UNIT', targetField: 'BUSINESS_UNIT' },
-      { sourceField: 'VOUCHER_ID', targetField: 'VOUCHER_ID' },
+      { sourceField: 'REQ_ID', targetField: 'REQ_ID' },
     ],
   },
   {
-    id: 'rel_pymnt_vchr_payment_tbl',
-    sourceTable: 'PYMNT_VCHR_XREF',
-    targetTable: 'PAYMENT_TBL',
+    id: 'rel_req_distrib_req_line',
+    sourceTable: 'REQ_LINE_DISTRIB',
+    targetTable: 'REQ_LINE',
     cardinality: 'N-1',
-    label: 'Liaison facture vers le décaissement bancaire émis',
+    label: 'Imputation vers ligne de demande d’achat (REQ)',
     reliability: 'Vérifié - ERD Oracle 9.2',
     isVerified: true,
     joinConditions: [
-      { sourceField: 'BANK_SETID', targetField: 'BANK_SETID' },
-      { sourceField: 'BANK_CD', targetField: 'BANK_CD' },
-      { sourceField: 'BANK_ACCT_KEY', targetField: 'BANK_ACCT_KEY' },
-      { sourceField: 'PYMNT_ID_REF', targetField: 'PYMNT_ID_REF' },
+      { sourceField: 'BUSINESS_UNIT', targetField: 'BUSINESS_UNIT' },
+      { sourceField: 'REQ_ID', targetField: 'REQ_ID' },
+      { sourceField: 'LINE_NBR', targetField: 'LINE_NBR' },
     ],
   },
+  {
+    id: 'rel_req_ship_req_line',
+    sourceTable: 'REQ_LINE_SHIP',
+    targetTable: 'REQ_LINE',
+    cardinality: 'N-1',
+    label: 'Expédition vers ligne de réquisition',
+    reliability: 'Vérifié - ERD Oracle 9.2',
+    isVerified: true,
+    joinConditions: [
+      { sourceField: 'BUSINESS_UNIT', targetField: 'BUSINESS_UNIT' },
+      { sourceField: 'REQ_ID', targetField: 'REQ_ID' },
+      { sourceField: 'LINE_NBR', targetField: 'LINE_NBR' },
+    ],
+  },
+  {
+    id: 'rel_req_hdr_comment_req_hdr',
+    sourceTable: 'REQ_HDR_COMMENT',
+    targetTable: 'REQ_HDR',
+    cardinality: 'N-1',
+    label: 'Commentaires d’entête vers demande d’achat',
+    reliability: 'Vérifié - ERD Oracle 9.2',
+    isVerified: true,
+    joinConditions: [
+      { sourceField: 'BUSINESS_UNIT', targetField: 'BUSINESS_UNIT' },
+      { sourceField: 'REQ_ID', targetField: 'REQ_ID' },
+    ],
+  },
+  {
+    id: 'rel_req_line_comment_req_line',
+    sourceTable: 'REQ_LINE_COMMENT',
+    targetTable: 'REQ_LINE',
+    cardinality: 'N-1',
+    label: 'Commentaires de ligne vers ligne de réquisition',
+    reliability: 'Vérifié - ERD Oracle 9.2',
+    isVerified: true,
+    joinConditions: [
+      { sourceField: 'BUSINESS_UNIT', targetField: 'BUSINESS_UNIT' },
+      { sourceField: 'REQ_ID', targetField: 'REQ_ID' },
+      { sourceField: 'LINE_NBR', targetField: 'LINE_NBR' },
+    ],
+  },
+  {
+    id: 'rel_pv_req_status_req_line',
+    sourceTable: 'PV_REQ_STATUS',
+    targetTable: 'REQ_LINE',
+    cardinality: 'N-1',
+    label: 'Circuit d’approbation AWE vers ligne de réquisition',
+    reliability: 'Vérifié - ERD Oracle 9.2',
+    isVerified: true,
+    joinConditions: [
+      { sourceField: 'BUSINESS_UNIT', targetField: 'BUSINESS_UNIT' },
+      { sourceField: 'REQ_ID', targetField: 'REQ_ID' },
+      { sourceField: 'LINE_NBR', targetField: 'LINE_NBR' },
+    ],
+  },
+  {
+    id: 'rel_req_exp_req_distrib',
+    sourceTable: 'REQ_LN_DIST_EXP',
+    targetTable: 'REQ_LINE_DISTRIB',
+    cardinality: 'N-1',
+    label: 'Détail engagements vers ventilation réquisition',
+    reliability: 'Vérifié - ERD Oracle 9.2',
+    isVerified: true,
+    joinConditions: [
+      { sourceField: 'BUSINESS_UNIT', targetField: 'BUSINESS_UNIT' },
+      { sourceField: 'REQ_ID', targetField: 'REQ_ID' },
+      { sourceField: 'LINE_NBR', targetField: 'LINE_NBR' },
+      { sourceField: 'DISTRIB_LINE_NUM', targetField: 'DISTRIB_LINE_NUM' },
+    ],
+  },
+  {
+    id: 'rel_req_hdr_user',
+    sourceTable: 'REQ_HDR',
+    targetTable: 'PSOPRDEFN',
+    cardinality: 'N-1',
+    label: 'Demandeur / Utilisateur à l’origine (REQUESTOR_ID -> OPRID)',
+    reliability: 'Standard PeopleTools',
+    isVerified: true,
+    joinConditions: [
+      { sourceField: 'REQUESTOR_ID', targetField: 'OPRID' },
+    ],
+  },
+  {
+    id: 'rel_req_hdr_comment_user',
+    sourceTable: 'REQ_HDR_COMMENT',
+    targetTable: 'PSOPRDEFN',
+    cardinality: 'N-1',
+    label: 'Auteur du commentaire d’entête (OPRID)',
+    reliability: 'Standard PeopleTools',
+    isVerified: true,
+    joinConditions: [
+      { sourceField: 'OPRID', targetField: 'OPRID' },
+    ],
+  },
+  {
+    id: 'rel_req_line_comment_user',
+    sourceTable: 'REQ_LINE_COMMENT',
+    targetTable: 'PSOPRDEFN',
+    cardinality: 'N-1',
+    label: 'Auteur du commentaire de ligne (OPRID)',
+    reliability: 'Standard PeopleTools',
+    isVerified: true,
+    joinConditions: [
+      { sourceField: 'OPRID', targetField: 'OPRID' },
+    ],
+  },
+  {
+    id: 'rel_pv_req_status_user',
+    sourceTable: 'PV_REQ_STATUS',
+    targetTable: 'PSOPRDEFN',
+    cardinality: 'N-1',
+    label: 'Approbateur AWE (OPRID)',
+    reliability: 'Standard PeopleTools',
+    isVerified: true,
+    joinConditions: [
+      { sourceField: 'OPRID', targetField: 'OPRID' },
+    ],
+  },
+  {
+    id: 'rel_req_line_vendor',
+    sourceTable: 'REQ_LINE',
+    targetTable: 'VENDOR',
+    cardinality: 'N-1',
+    label: 'Fournisseur suggéré sur la réquisition',
+    reliability: 'Vérifié - ERD Oracle 9.2',
+    isVerified: true,
+    joinConditions: [
+      { sourceField: 'VENDOR_ID', targetField: 'VENDOR_ID' },
+    ],
+  },
+  {
+    id: 'rel_req_line_item',
+    sourceTable: 'REQ_LINE',
+    targetTable: 'MASTER_ITEM_TBL',
+    cardinality: 'N-1',
+    label: 'Article du catalogue maître sur la réquisition',
+    reliability: 'Vérifié - ERD Oracle 9.2',
+    isVerified: true,
+    joinConditions: [
+      { sourceField: 'INV_ITEM_ID', targetField: 'INV_ITEM_ID' },
+    ],
+  },
+
+  // ==========================================
+  // FOURNISSEURS (VENDOR)
+  // ==========================================
   {
     id: 'rel_vendor_addr_vendor',
     sourceTable: 'VENDOR_ADDR',
@@ -184,223 +370,36 @@ export const FSCM_RELATIONS: PSRelation[] = [
       { sourceField: 'VENDOR_ID', targetField: 'VENDOR_ID' },
     ],
   },
-
-  // ==========================================
-  // EPROCUREMENT (REQ) RELATIONS
-  // ==========================================
   {
-    id: 'rel_req_line_req_hdr',
-    sourceTable: 'REQ_LINE',
-    targetTable: 'REQ_HDR',
+    id: 'rel_vendor_loc_vendor',
+    sourceTable: 'VENDOR_LOC',
+    targetTable: 'VENDOR',
     cardinality: 'N-1',
-    label: 'Ligne de demande d’achat vers son entête',
+    label: 'Site de commande / facturation vers fiche fournisseur',
     reliability: 'Vérifié - ERD Oracle 9.2',
     isVerified: true,
     joinConditions: [
-      { sourceField: 'BUSINESS_UNIT', targetField: 'BUSINESS_UNIT' },
-      { sourceField: 'REQ_ID', targetField: 'REQ_ID' },
-    ],
-  },
-  {
-    id: 'rel_req_distrib_req_line',
-    sourceTable: 'REQ_LINE_DISTRIB',
-    targetTable: 'REQ_LINE',
-    cardinality: 'N-1',
-    label: 'Imputation vers ligne de demande d’achat',
-    reliability: 'Vérifié - ERD Oracle 9.2',
-    isVerified: true,
-    joinConditions: [
-      { sourceField: 'BUSINESS_UNIT', targetField: 'BUSINESS_UNIT' },
-      { sourceField: 'REQ_ID', targetField: 'REQ_ID' },
-      { sourceField: 'LINE_NBR', targetField: 'LINE_NBR' },
-    ],
-  },
-  {
-    id: 'rel_po_distrib_req_distrib',
-    sourceTable: 'PO_LINE_DISTRIB',
-    targetTable: 'REQ_LINE_DISTRIB',
-    cardinality: 'N-1',
-    label: 'Traçabilité Commande d’achat vers Demande d’achat ePro',
-    reliability: 'Vérifié - ERD Oracle 9.2',
-    isVerified: true,
-    joinConditions: [
-      { sourceField: 'REQ_ID', targetField: 'REQ_ID' },
-      { sourceField: 'REQ_LINE_NBR', targetField: 'LINE_NBR' },
-      { sourceField: 'REQ_DISTRIB_NBR', targetField: 'DISTRIB_LINE_NUM' },
+      { sourceField: 'SETID', targetField: 'SETID' },
+      { sourceField: 'VENDOR_ID', targetField: 'VENDOR_ID' },
     ],
   },
 
   // ==========================================
-  // GENERAL LEDGER (GL) RELATIONS
+  // ARTICLES & CATALOGUE (ITEM)
   // ==========================================
   {
-    id: 'rel_jrnl_ln_jrnl_hdr',
-    sourceTable: 'JRNL_LN',
-    targetTable: 'JRNL_HEADER',
+    id: 'rel_inv_items_master_item',
+    sourceTable: 'INV_ITEMS',
+    targetTable: 'MASTER_ITEM_TBL',
     cardinality: 'N-1',
-    label: 'Lignes d’écritures vers entête de journal comptable',
+    label: 'Paramètres inventaire vers catalogue maître article',
     reliability: 'Vérifié - ERD Oracle 9.2',
     isVerified: true,
     joinConditions: [
-      { sourceField: 'BUSINESS_UNIT', targetField: 'BUSINESS_UNIT' },
-      { sourceField: 'JOURNAL_ID', targetField: 'JOURNAL_ID' },
-      { sourceField: 'JOURNAL_DATE', targetField: 'JOURNAL_DATE' },
-      { sourceField: 'UNPOST_SEQ', targetField: 'UNPOST_SEQ' },
+      { sourceField: 'SETID', targetField: 'SETID' },
+      { sourceField: 'INV_ITEM_ID', targetField: 'INV_ITEM_ID' },
     ],
   },
-  {
-    id: 'rel_jrnl_ln_gl_account',
-    sourceTable: 'JRNL_LN',
-    targetTable: 'GL_ACCOUNT_TBL',
-    cardinality: 'N-1',
-    label: 'Compte comptable de la ligne de journal vers le plan de comptes',
-    reliability: 'Vérifié - ERD Oracle 9.2',
-    isVerified: true,
-    joinConditions: [
-      { sourceField: 'ACCOUNT', targetField: 'ACCOUNT' },
-    ],
-  },
-  {
-    id: 'rel_jrnl_ln_dept',
-    sourceTable: 'JRNL_LN',
-    targetTable: 'DEPT_TBL',
-    cardinality: 'N-1',
-    label: 'Centre de coût de la ligne de journal vers référentiel départements',
-    reliability: 'Vérifié - ERD Oracle 9.2',
-    isVerified: true,
-    joinConditions: [
-      { sourceField: 'DEPTID', targetField: 'DEPTID' },
-    ],
-  },
-  {
-    id: 'rel_ledger_gl_account',
-    sourceTable: 'LEDGER',
-    targetTable: 'GL_ACCOUNT_TBL',
-    cardinality: 'N-1',
-    label: 'Soldes du grand livre vers le plan de comptes',
-    reliability: 'Vérifié - ERD Oracle 9.2',
-    isVerified: true,
-    joinConditions: [
-      { sourceField: 'ACCOUNT', targetField: 'ACCOUNT' },
-    ],
-  },
-
-  // ==========================================
-  // BILLING & ACCOUNTS RECEIVABLE (BI & AR)
-  // ==========================================
-  {
-    id: 'rel_bi_line_bi_hdr',
-    sourceTable: 'BI_LINE',
-    targetTable: 'BI_HDR',
-    cardinality: 'N-1',
-    label: 'Ligne de facture client vers l’entête de facturation',
-    reliability: 'Vérifié - ERD Oracle 9.2',
-    isVerified: true,
-    joinConditions: [
-      { sourceField: 'BUSINESS_UNIT', targetField: 'BUSINESS_UNIT' },
-      { sourceField: 'INVOICE', targetField: 'INVOICE' },
-    ],
-  },
-  {
-    id: 'rel_bi_acct_bi_line',
-    sourceTable: 'BI_ACCT_ENTRY',
-    targetTable: 'BI_LINE',
-    cardinality: 'N-1',
-    label: 'Écritures comptables vers ligne de facturation client',
-    reliability: 'Vérifié - ERD Oracle 9.2',
-    isVerified: true,
-    joinConditions: [
-      { sourceField: 'BUSINESS_UNIT', targetField: 'BUSINESS_UNIT' },
-      { sourceField: 'INVOICE', targetField: 'INVOICE' },
-      { sourceField: 'LINE_SEQ_NUM', targetField: 'LINE_SEQ_NUM' },
-    ],
-  },
-  {
-    id: 'rel_bi_hdr_customer',
-    sourceTable: 'BI_HDR',
-    targetTable: 'CUSTOMER',
-    cardinality: 'N-1',
-    label: 'Client facturé vers le référentiel des clients',
-    reliability: 'Vérifié - ERD Oracle 9.2',
-    isVerified: true,
-    joinConditions: [
-      { sourceField: 'BILL_TO_CUST_ID', targetField: 'CUST_ID' },
-    ],
-  },
-  {
-    id: 'rel_item_customer',
-    sourceTable: 'ITEM',
-    targetTable: 'CUSTOMER',
-    cardinality: 'N-1',
-    label: 'Poste ouvert de créance vers le référentiel des clients',
-    reliability: 'Vérifié - ERD Oracle 9.2',
-    isVerified: true,
-    joinConditions: [
-      { sourceField: 'CUST_ID', targetField: 'CUST_ID' },
-    ],
-  },
-  {
-    id: 'rel_item_activity_item',
-    sourceTable: 'ITEM_ACTIVITY',
-    targetTable: 'ITEM',
-    cardinality: 'N-1',
-    label: 'Encaissements et mouvements vers la pièce créance client',
-    reliability: 'Vérifié - ERD Oracle 9.2',
-    isVerified: true,
-    joinConditions: [
-      { sourceField: 'BUSINESS_UNIT', targetField: 'BUSINESS_UNIT' },
-      { sourceField: 'CUST_ID', targetField: 'CUST_ID' },
-      { sourceField: 'ITEM', targetField: 'ITEM' },
-      { sourceField: 'ITEM_SEQ_NUM', targetField: 'ITEM_SEQ_NUM' },
-    ],
-  },
-
-  // ==========================================
-  // ASSET MANAGEMENT (AM) RELATIONS
-  // ==========================================
-  {
-    id: 'rel_book_asset',
-    sourceTable: 'BOOK',
-    targetTable: 'ASSET',
-    cardinality: 'N-1',
-    label: 'Registre d’amortissement vers la fiche d’immobilisation',
-    reliability: 'Vérifié - ERD Oracle 9.2',
-    isVerified: true,
-    joinConditions: [
-      { sourceField: 'BUSINESS_UNIT', targetField: 'BUSINESS_UNIT' },
-      { sourceField: 'ASSET_ID', targetField: 'ASSET_ID' },
-    ],
-  },
-  {
-    id: 'rel_cost_asset',
-    sourceTable: 'COST',
-    targetTable: 'ASSET',
-    cardinality: 'N-1',
-    label: 'Coûts et valeur d’actif vers la fiche d’immobilisation',
-    reliability: 'Vérifié - ERD Oracle 9.2',
-    isVerified: true,
-    joinConditions: [
-      { sourceField: 'BUSINESS_UNIT', targetField: 'BUSINESS_UNIT' },
-      { sourceField: 'ASSET_ID', targetField: 'ASSET_ID' },
-    ],
-  },
-  {
-    id: 'rel_asset_loc_asset',
-    sourceTable: 'ASSET_LOCATION',
-    targetTable: 'ASSET',
-    cardinality: 'N-1',
-    label: 'Emplacement physique vers l’immobilisation',
-    reliability: 'Vérifié - ERD Oracle 9.2',
-    isVerified: true,
-    joinConditions: [
-      { sourceField: 'BUSINESS_UNIT', targetField: 'BUSINESS_UNIT' },
-      { sourceField: 'ASSET_ID', targetField: 'ASSET_ID' },
-    ],
-  },
-
-  // ==========================================
-  // INVENTORY & ORDER MANAGEMENT
-  // ==========================================
   {
     id: 'rel_bu_items_master_item',
     sourceTable: 'BU_ITEMS_INV',
@@ -413,106 +412,20 @@ export const FSCM_RELATIONS: PSRelation[] = [
       { sourceField: 'INV_ITEM_ID', targetField: 'INV_ITEM_ID' },
     ],
   },
-  {
-    id: 'rel_in_demand_bu_items',
-    sourceTable: 'IN_DEMAND',
-    targetTable: 'BU_ITEMS_INV',
-    cardinality: 'N-1',
-    label: 'Réservation de stock vers le stock en magasin',
-    reliability: 'Vérifié - ERD Oracle 9.2',
-    isVerified: true,
-    joinConditions: [
-      { sourceField: 'BUSINESS_UNIT', targetField: 'BUSINESS_UNIT' },
-      { sourceField: 'INV_ITEM_ID', targetField: 'INV_ITEM_ID' },
-    ],
-  },
-  {
-    id: 'rel_ord_line_ord_hdr',
-    sourceTable: 'ORD_LINE',
-    targetTable: 'ORD_HEADER',
-    cardinality: 'N-1',
-    label: 'Ligne de vente vers commande client',
-    reliability: 'Vérifié - ERD Oracle 9.2',
-    isVerified: true,
-    joinConditions: [
-      { sourceField: 'BUSINESS_UNIT', targetField: 'BUSINESS_UNIT' },
-      { sourceField: 'ORDER_NO', targetField: 'ORDER_NO' },
-    ],
-  },
 
   // ==========================================
-  // PROJECT COSTING (PC) RELATIONS
+  // UTILISATEURS (USER - PSOPRDEFN)
   // ==========================================
   {
-    id: 'rel_proj_actv_project',
-    sourceTable: 'PROJ_ACTIVITY',
-    targetTable: 'PROJECT',
-    cardinality: 'N-1',
-    label: 'Activités vers projet',
-    reliability: 'Vérifié - ERD Oracle 9.2',
+    id: 'rel_opr_def_fs_psoprdefn',
+    sourceTable: 'OPR_DEF_TBL_FS',
+    targetTable: 'PSOPRDEFN',
+    cardinality: '1-1',
+    label: 'Préférences Finance FSCM vers compte utilisateur',
+    reliability: 'Standard PeopleTools',
     isVerified: true,
     joinConditions: [
-      { sourceField: 'BUSINESS_UNIT', targetField: 'BUSINESS_UNIT' },
-      { sourceField: 'PROJECT_ID', targetField: 'PROJECT_ID' },
-    ],
-  },
-  {
-    id: 'rel_proj_resource_proj_actv',
-    sourceTable: 'PROJ_RESOURCE',
-    targetTable: 'PROJ_ACTIVITY',
-    cardinality: 'N-1',
-    label: 'Coûts analytiques vers activité de projet',
-    reliability: 'Vérifié - ERD Oracle 9.2',
-    isVerified: true,
-    joinConditions: [
-      { sourceField: 'BUSINESS_UNIT', targetField: 'BUSINESS_UNIT' },
-      { sourceField: 'PROJECT_ID', targetField: 'PROJECT_ID' },
-      { sourceField: 'ACTIVITY_ID', targetField: 'ACTIVITY_ID' },
-    ],
-  },
-
-  // ==========================================
-  // EXPENSES (EX) RELATIONS
-  // ==========================================
-  {
-    id: 'rel_ex_line_ex_hdr',
-    sourceTable: 'EX_SHEET_LINE',
-    targetTable: 'EX_SHEET_HDR',
-    cardinality: 'N-1',
-    label: 'Ligne de dépense vers note de frais',
-    reliability: 'Vérifié - ERD Oracle 9.2',
-    isVerified: true,
-    joinConditions: [
-      { sourceField: 'SHEET_ID', targetField: 'SHEET_ID' },
-    ],
-  },
-
-  // ==========================================
-  // TREASURY & CONTRACTS RELATIONS
-  // ==========================================
-  {
-    id: 'rel_bank_acct_bank_cd',
-    sourceTable: 'BANK_ACCT_TBL',
-    targetTable: 'BANK_CD_TBL',
-    cardinality: 'N-1',
-    label: 'Compte bancaire vers établissement bancaire',
-    reliability: 'Vérifié - ERD Oracle 9.2',
-    isVerified: true,
-    joinConditions: [
-      { sourceField: 'SETID', targetField: 'SETID' },
-      { sourceField: 'BANK_CD', targetField: 'BANK_CD' },
-    ],
-  },
-  {
-    id: 'rel_ca_detail_ca_hdr',
-    sourceTable: 'CA_DETAIL_LINE',
-    targetTable: 'CA_CONTR_HDR',
-    cardinality: 'N-1',
-    label: 'Ligne contractuelle vers contrat commercial',
-    reliability: 'Vérifié - ERD Oracle 9.2',
-    isVerified: true,
-    joinConditions: [
-      { sourceField: 'CONTRACT_NUM', targetField: 'CONTRACT_NUM' },
+      { sourceField: 'OPRID', targetField: 'OPRID' },
     ],
   },
 ];

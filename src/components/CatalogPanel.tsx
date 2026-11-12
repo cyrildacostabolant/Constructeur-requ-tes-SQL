@@ -40,9 +40,9 @@ export const CatalogPanel: React.FC<CatalogPanelProps> = ({
   const [favorites, setFavorites] = useState<Set<string>>(() => {
     try {
       const saved = localStorage.getItem('ps_favorite_tables');
-      return saved ? new Set(JSON.parse(saved)) : new Set(['PO_HDR', 'VOUCHER', 'JRNL_HEADER']);
+      return saved ? new Set(JSON.parse(saved)) : new Set(['PO_HDR', 'REQ_HDR', 'RECV_HDR']);
     } catch {
-      return new Set(['PO_HDR', 'VOUCHER']);
+      return new Set(['PO_HDR', 'REQ_HDR']);
     }
   });
   const [showOnlyFavorites, setShowOnlyFavorites] = useState(false);

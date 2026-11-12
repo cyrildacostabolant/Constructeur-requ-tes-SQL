@@ -1,18 +1,10 @@
 export type FunctionalModuleId =
-  | 'GL'
-  | 'AP'
-  | 'AR'
-  | 'BI'
   | 'PO'
   | 'REQ'
-  | 'IN'
-  | 'OM'
-  | 'AM'
-  | 'PC'
-  | 'EX'
-  | 'TR'
-  | 'CA'
-  | 'COMMON';
+  | 'RECV'
+  | 'VENDOR'
+  | 'ITEM'
+  | 'USER';
 
 export interface FunctionalModule {
   id: FunctionalModuleId;

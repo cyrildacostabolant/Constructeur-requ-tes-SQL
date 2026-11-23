@@ -5,7 +5,7 @@ export const FUNCTIONAL_MODULES: Record<FunctionalModuleId, FunctionalModule> = 
     id: 'PO',
     name: 'Commandes d’achat (CDA)',
     nameEn: 'Purchase Orders',
-    description: 'Entêtes de commandes (PO_HDR), lignes (PO_LINE), expéditions (PO_LINE_SHIP) et imputations (PO_LINE_DISTRIB).',
+    description: 'Entêtes, lignes, expéditions, ventilations, avenants, frais annexes, taxes EXS, transport, diffusion/EDI, acheteurs (BUYER_TBL) et commentaires.',
     color: '#0284c7', // sky-600
     iconName: 'ShoppingBag',
   },
@@ -13,7 +13,7 @@ export const FUNCTIONAL_MODULES: Record<FunctionalModuleId, FunctionalModule> = 
     id: 'REQ',
     name: 'Demandes d’achat (REQ)',
     nameEn: 'Requisitions',
-    description: 'Entêtes de demandes (REQ_HDR), lignes (REQ_LINE), expéditions (REQ_LINE_SHIP), ventilations (REQ_LINE_DISTRIB), commentaires et workflow.',
+    description: 'Entêtes (REQ_HDR), lignes, expéditions, ventilations (REQ_LN_DISTRIB), avenants, commentaires (REQ_COMMENTS), demandeurs (REQUESTOR_TBL) et chargeur.',
     color: '#8b5cf6', // purple-500
     iconName: 'FileCheck',
   },
@@ -24,6 +24,14 @@ export const FUNCTIONAL_MODULES: Record<FunctionalModuleId, FunctionalModule> = 
     description: 'Bons de réception physique (RECV_HDR), lignes reçues (RECV_LN), expéditions et ventilations de réception.',
     color: '#059669', // emerald-600
     iconName: 'Truck',
+  },
+  CNTRCT: {
+    id: 'CNTRCT',
+    name: 'Contrats (CNTRCT)',
+    nameEn: 'Procurement Contracts',
+    description: 'Contrats d’achat (CNTRCT_HDR), lignes (CNTRCT_LINE), jalons, imputations, tarifications, styles et libérations.',
+    color: '#ec4899', // pink-500
+    iconName: 'FileSignature',
   },
   VENDOR: {
     id: 'VENDOR',
@@ -37,7 +45,7 @@ export const FUNCTIONAL_MODULES: Record<FunctionalModuleId, FunctionalModule> = 
     id: 'ITEM',
     name: 'Articles (ITEM)',
     nameEn: 'Item Master & Inventory',
-    description: 'Catalogue articles maîtres (MASTER_ITEM_TBL), articles stockés (INV_ITEMS) et stock par magasin (BU_ITEMS_INV).',
+    description: 'Catalogue articles maîtres (MASTER_ITEM_TBL), articles stockés (INV_ITEMS), stock par magasin (BU_ITEMS_INV) et spécifications d’achat (ITEM_SPEX_PUR).',
     color: '#0891b2', // cyan-600
     iconName: 'Boxes',
   },

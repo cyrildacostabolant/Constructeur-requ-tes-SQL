@@ -2,6 +2,7 @@ export type FunctionalModuleId =
   | 'PO'
   | 'REQ'
   | 'RECV'
+  | 'CNTRCT'
   | 'VENDOR'
   | 'ITEM'
   | 'USER';

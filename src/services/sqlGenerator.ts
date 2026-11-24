@@ -1,5 +1,6 @@
 import { FSCM_TABLES } from '../data/metadata/tables';
 import {
+  PSTable,
   PeopleSoftQuery,
   QueryValidationError,
   SelectedField,
@@ -8,6 +9,12 @@ import {
 import { graphEngine } from './graphEngine';
 
 export class PeopleSoftSqlGenerator {
+  private getQualifiedSqlName(recordName: string, tablesMap: Map<string, PSTable>): string {
+    const meta = tablesMap.get(recordName);
+    const rawSqlName = meta ? meta.sqlName : `PS_${recordName}`;
+    return rawSqlName.startsWith('SYSADM.') ? rawSqlName : `SYSADM.${rawSqlName}`;
+  }
+
   /**
    * Generates formatted SQL from the query model
    */
@@ -107,7 +114,7 @@ export class PeopleSoftSqlGenerator {
 
     // 6. Build FROM & JOINS
     const baseTableMeta = tablesMap.get(query.baseTable);
-    const baseSqlName = baseTableMeta ? baseTableMeta.sqlName : `PS_${query.baseTable}`;
+    const baseSqlName = this.getQualifiedSqlName(query.baseTable, tablesMap);
     const baseAlias = aliasMap.get(query.baseTable) || query.baseTable;
 
     let fromClause = `FROM ${baseSqlName} ${baseAlias}`;
@@ -131,8 +138,7 @@ export class PeopleSoftSqlGenerator {
 
         if (leftJoined && !rightJoined) {
           // Normal direction: left table in FROM, join right table
-          const rightMeta = tablesMap.get(j.rightTable);
-          const rightSqlName = rightMeta ? rightMeta.sqlName : `PS_${j.rightTable}`;
+          const rightSqlName = this.getQualifiedSqlName(j.rightTable, tablesMap);
           const leftAlias = aliasMap.get(j.leftTable) || j.leftTable;
           const rightAlias = aliasMap.get(j.rightTable) || j.rightTable;
 
@@ -152,8 +158,7 @@ export class PeopleSoftSqlGenerator {
           );
         } else if (!leftJoined && rightJoined) {
           // Reverse direction: right table in FROM, join left table
-          const leftMeta = tablesMap.get(j.leftTable);
-          const leftSqlName = leftMeta ? leftMeta.sqlName : `PS_${j.leftTable}`;
+          const leftSqlName = this.getQualifiedSqlName(j.leftTable, tablesMap);
           const leftAlias = aliasMap.get(j.leftTable) || j.leftTable;
           const rightAlias = aliasMap.get(j.rightTable) || j.rightTable;
 
@@ -193,8 +198,7 @@ export class PeopleSoftSqlGenerator {
 
     // Fallback for any disconnected joins (e.g., cross joins or orphan table joins)
     for (const j of remainingJoins) {
-      const rightMeta = tablesMap.get(j.rightTable);
-      const rightSqlName = rightMeta ? rightMeta.sqlName : `PS_${j.rightTable}`;
+      const rightSqlName = this.getQualifiedSqlName(j.rightTable, tablesMap);
       const leftAlias = aliasMap.get(j.leftTable) || j.leftTable;
       const rightAlias = aliasMap.get(j.rightTable) || j.rightTable;
 
@@ -249,7 +253,7 @@ export class PeopleSoftSqlGenerator {
         if (tblMeta && tblMeta.hasEffdt) {
           const tAlias = aliasMap.get(recName) || recName;
           const subAlias = `${tAlias}_ED`;
-          const subSqlName = tblMeta.sqlName;
+          const subSqlName = this.getQualifiedSqlName(recName, tablesMap);
           const keys = tblMeta.effdtKeys || ['SETID'];
 
           const keyMatches = keys
@@ -320,7 +324,7 @@ export class PeopleSoftSqlGenerator {
       const isIntermediate = !visibleFields.some((f) => f.recordName === t) && t !== query.baseTable;
       return {
         recordName: t,
-        sqlName: meta?.sqlName || `PS_${t}`,
+        sqlName: this.getQualifiedSqlName(t, tablesMap),
         label: meta?.label || t,
         alias: aliasMap.get(t) || t,
         isIntermediate,

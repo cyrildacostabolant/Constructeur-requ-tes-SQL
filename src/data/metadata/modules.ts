@@ -5,7 +5,7 @@ export const FUNCTIONAL_MODULES: Record<FunctionalModuleId, FunctionalModule> = 
     id: 'PO',
     name: 'Commandes d’achat (CDA)',
     nameEn: 'Purchase Orders',
-    description: 'Entêtes, lignes, expéditions, ventilations, avenants, frais annexes, taxes EXS, transport, diffusion/EDI, acheteurs (BUYER_TBL) et commentaires.',
+    description: 'Entêtes (PO_HDR, S1_PO_HDR), lignes, expéditions, ventilations, avenants, frais annexes, taxes EXS, transport, diffusion/EDI, acheteurs (BUYER_TBL) et commentaires.',
     color: '#0284c7', // sky-600
     iconName: 'ShoppingBag',
   },

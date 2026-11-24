@@ -242,6 +242,7 @@ export class PeopleSoftGraphEngine {
     // Preferred semantic abbreviations
     const semanticRules: Record<string, string> = {
       PO_HDR: 'PO_HDR',
+      S1_PO_HDR: 'S1_PO_HDR',
       PO_CHNG_ORD: 'PO_CORD',
       PO_CHNG_HDR: 'PO_CHDR',
       PO_HDR_MISC: 'PO_HMIS',

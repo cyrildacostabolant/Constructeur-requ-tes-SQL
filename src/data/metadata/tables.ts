@@ -5,7 +5,7 @@ import { REQ_TABLES } from './reqTables';
 
 export const FSCM_TABLES: PSTable[] = [
   // ==========================================
-  // COMMANDES D'ACHAT - CDA (PO) - 32 tables ERD 9.2
+  // COMMANDES D'ACHAT - CDA (PO) - 33 tables (32 ERD 9.2 + S1_PO_HDR)
   // ==========================================
   ...PO_TABLES,
 

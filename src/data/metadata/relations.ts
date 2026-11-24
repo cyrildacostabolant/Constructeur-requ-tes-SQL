@@ -18,6 +18,19 @@ export const FSCM_RELATIONS: PSRelation[] = [
     ],
   },
   {
+    id: 'rel_s1_po_hdr_po_hdr',
+    sourceTable: 'S1_PO_HDR',
+    targetTable: 'PO_HDR',
+    cardinality: '1-1',
+    label: 'Extension spécifique entête commande (S1_PO_HDR) vers PO_HDR',
+    reliability: 'Standard PeopleTools',
+    isVerified: true,
+    joinConditions: [
+      { sourceField: 'BUSINESS_UNIT', targetField: 'BUSINESS_UNIT' },
+      { sourceField: 'PO_ID', targetField: 'PO_ID' },
+    ],
+  },
+  {
     id: 'rel_po_chng_ord_po_hdr',
     sourceTable: 'PO_CHNG_ORD',
     targetTable: 'PO_HDR',
